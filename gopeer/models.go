@@ -7,28 +7,38 @@ import (
 )
 
 type Listener struct {
-	address string
-	client  *Client
-	listen  net.Listener
+	client *Client
+	listen net.Listener
+}
+
+type User struct {
+	Name       string                    `json:"name"`
+	Login      string                    `json:"login"`
+	Password   []byte                    `json:"password"`
+	Room       uint                      `json:"room"`
+	PrivateKey *rsa.PrivateKey           `json:"privateKey"`
+	F2F        map[string]*rsa.PublicKey `json:"f2f"`
 }
 
 type Client struct {
-	privateKey  *rsa.PrivateKey
+	user        *User
+	address     string
 	mapping     map[string]bool
 	connections map[net.Conn]string
 	actions     map[string]chan string
 	mutex       *sync.Mutex
-	f2f         FriendToFriend
-}
-
-type FriendToFriend struct {
-	enable  bool
-	friends map[string]*rsa.PublicKey
+	f2f_d       map[*rsa.PublicKey]string
 }
 
 type Package struct {
 	Head HeadPackage `json:"head"`
 	Body BodyPackage `json:"body"`
+}
+
+type PackageBroadCast struct {
+	AddressFrom string
+	Key         *rsa.PublicKey
+	Room        uint
 }
 
 type HeadPackage struct {
@@ -39,6 +49,7 @@ type HeadPackage struct {
 }
 
 type BodyPackage struct {
+	Date string `json:"date"`
 	Data string `json:"data"`
 	Hash string `json:"hash"`
 	Sign string `json:"sign"`

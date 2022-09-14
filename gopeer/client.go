@@ -10,37 +10,56 @@ import (
 	"time"
 )
 
-func NewClient(priv *rsa.PrivateKey) *Client {
-	if priv == nil {
-		return nil
+func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uint) *User {
+	//if uniqueLogin(login) != true {
+	//	return nil
+	//}
+	pswd := HashSum([]byte(password))
+	return &User{
+		Name:       name,
+		Login:      login,
+		Password:   pswd,
+		Room:       room,
+		PrivateKey: priv,
+		F2F:        make(map[string]*rsa.PublicKey),
 	}
+}
+func NewClient(address string, user *User) *Client {
 	return &Client{
+		user:        user,
+		address:     address,
 		mutex:       new(sync.Mutex),
 		mapping:     make(map[string]bool),
 		connections: make(map[net.Conn]string),
-		privateKey:  priv,
 		actions:     make(map[string]chan string),
-		f2f: FriendToFriend{
-			friends: make(map[string]*rsa.PublicKey),
-		},
+		f2f_d:       make(map[*rsa.PublicKey]string),
 	}
 }
-func (client *Client) Send(receiver *rsa.PublicKey, pack *Package) (string, error) {
+
+func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
+	s := client.InF2F(login)
+	if s == false {
+		return "", nil
+	}
 	var (
 		err    error
 		result string
-		hash   = HashPublic(receiver)
+		hash   = HashPublic(client.user.F2F[login])
 	)
 	client.actions[hash] = make(chan string)
 	defer delete(client.actions, hash)
-	client.send(receiver, pack)
+	client.send(client.user.F2F[login], pack)
 	select {
 	case result = <-client.actions[hash]:
 	case <-time.After(time.Duration(settings.WAIT_TIME) * time.Second):
 		err = errors.New("Time is over")
 	}
+	if err == nil {
+		AddMessage(client.user.Login, login, pack)
+	}
 	return result, err
 }
+
 func (client *Client) Connect(address string, handle func(*Client, *Package)) error {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -49,6 +68,28 @@ func (client *Client) Connect(address string, handle func(*Client, *Package)) er
 	client.connections[conn] = address
 	go handleConn(conn, client, handle)
 	return nil
+}
+
+func (client *Client) BroadCastLocal() {
+	listenAddr, err := net.ResolveUDPAddr("udp4", ":8827")
+	if err != nil {
+		panic(err)
+	}
+	list, err := net.ListenUDP("udp4", listenAddr)
+	if err != nil {
+		panic(err)
+	}
+	defer list.Close()
+
+	addr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:9000")
+	if err != nil {
+		panic(err)
+	}
+	_, err = list.WriteTo([]byte("data to transmit"), addr)
+	println("Message sent")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (client *Client) Disconnect(address string) {
@@ -61,32 +102,23 @@ func (client *Client) Disconnect(address string) {
 }
 
 func (client *Client) Public() *rsa.PublicKey {
-	return &client.privateKey.PublicKey
+	return &client.user.PrivateKey.PublicKey
 }
 func (client *Client) Private() *rsa.PrivateKey {
-	return client.privateKey
+	return client.user.PrivateKey
 }
 func (client *Client) StringPublic() string {
-	return StringPublic(&client.privateKey.PublicKey)
+	return StringPublic(&client.user.PrivateKey.PublicKey)
 }
 func (client *Client) StringPrivate() string {
-	return StringPrivate(client.privateKey)
+	return StringPrivate(client.user.PrivateKey)
 }
 func (client *Client) HashPublic() string {
-	return HashPublic(&client.privateKey.PublicKey)
+	return HashPublic(&client.user.PrivateKey.PublicKey)
 }
 
-func (client *Client) F2F() bool {
-	return client.f2f.enable
-}
-func (client *Client) EnableF2F() {
-	client.f2f.enable = true
-}
-func (client *Client) DisableF2F() {
-	client.f2f.enable = false
-}
-func (client *Client) InF2F(pub *rsa.PublicKey) bool {
-	if _, ok := client.f2f.friends[HashPublic(pub)]; ok {
+func (client *Client) InF2F(login string) bool {
+	if _, ok := client.user.F2F[login]; ok {
 		return true
 	}
 	return false
@@ -94,19 +126,39 @@ func (client *Client) InF2F(pub *rsa.PublicKey) bool {
 
 func (client *Client) ListF2F() []*rsa.PublicKey {
 	var list []*rsa.PublicKey
-	for _, pub := range client.f2f.friends {
+	for _, pub := range client.user.F2F {
 		list = append(list, pub)
 	}
 	return list
 }
 
-func (client *Client) AppendF2F(pub *rsa.PublicKey) {
-	client.f2f.friends[HashPublic(pub)] = pub
+func (client *Client) ListF2FAddress() []string {
+	var list []string
+	for _, address := range client.f2f_d {
+		list = append(list, address)
+	}
+	return list
 }
 
-func (client *Client) RemoveF2F(pub *rsa.PublicKey) {
-	delete(client.f2f.friends, HashPublic(pub))
+func (client *Client) AppendFriend(pub *rsa.PublicKey, login string, address string) {
+	//pub *rsa.PublicKey, login := func(address) BroadCast
+	CreateDialog(client.user.Login, login)
+	client.user.F2F[login] = pub
+	client.f2f_d[pub] = address
 }
+
+func (client *Client) RemoveFriend(login string) {
+	delete(client.user.F2F, login)
+}
+
+func (client *Client) RemoveFriendAddress(pub *rsa.PublicKey) {
+	delete(client.f2f_d, pub)
+}
+
+func (client *Client) UpdateAddress(pub *rsa.PublicKey, address string) {
+	client.f2f_d[pub] = address
+}
+
 func (client *Client) send(receiver *rsa.PublicKey, pack *Package) {
 	encPack := client.encrypt(receiver, pack)
 	bytesPack := EncodePackage(encPack)
@@ -156,10 +208,11 @@ func (client *Client) encrypt(receiver *rsa.PublicKey, pack *Package) *Package {
 				Base64Decode(StringPublic(receiver)),
 				[]byte(pack.Head.Title),
 				[]byte(pack.Body.Data),
+				[]byte(pack.Body.Date),
 			},
 			[]byte{},
 		))
-		sign = Sign(client.privateKey, hash)
+		sign = Sign(client.user.PrivateKey, hash)
 	)
 	return &Package{
 		Head: HeadPackage{
@@ -169,6 +222,7 @@ func (client *Client) encrypt(receiver *rsa.PublicKey, pack *Package) *Package {
 			Session: Base64Encode(EncryptRSA(receiver, session)),
 		},
 		Body: BodyPackage{
+			Date: Base64Encode(EncryptAES(session, []byte(pack.Body.Date))),
 			Data: Base64Encode(EncryptAES(session, []byte(pack.Body.Data))),
 			Hash: Base64Encode(hash),
 			Sign: Base64Encode(sign),
@@ -176,7 +230,7 @@ func (client *Client) encrypt(receiver *rsa.PublicKey, pack *Package) *Package {
 }
 
 func (client *Client) decrypt(pack *Package) *Package {
-	session := DecryptRSA(client.privateKey, Base64Decode(pack.Head.Session))
+	session := DecryptRSA(client.user.PrivateKey, Base64Decode(pack.Head.Session))
 	if session == nil {
 		return nil
 	}
@@ -201,6 +255,10 @@ func (client *Client) decrypt(pack *Package) *Package {
 	if dataBytes == nil {
 		return nil
 	}
+	dateBytes := DecryptAES(session, Base64Decode(pack.Body.Date))
+	if dateBytes == nil {
+		return nil
+	}
 	rand := DecryptAES(session, Base64Decode(pack.Head.Rand))
 	hash := HashSum(bytes.Join(
 		[][]byte{
@@ -209,6 +267,7 @@ func (client *Client) decrypt(pack *Package) *Package {
 			Base64Decode(client.StringPublic()),
 			titleBytes,
 			dataBytes,
+			dateBytes,
 		},
 		[]byte{},
 	))
@@ -232,3 +291,9 @@ func (client *Client) decrypt(pack *Package) *Package {
 		},
 	}
 }
+
+func (client *Client) GetUser() *User {
+	return client.user
+}
+
+//BroadCast IsUser, UpdateUser, UpdateDialog
