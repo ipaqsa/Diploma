@@ -21,6 +21,7 @@ type User struct {
 }
 
 type Client struct {
+	db          *DB
 	user        *User
 	address     string
 	mapping     map[string]bool
@@ -35,12 +36,6 @@ type Package struct {
 	Body BodyPackage `json:"body"`
 }
 
-type PackageBroadCast struct {
-	AddressFrom string
-	Key         *rsa.PublicKey
-	Room        uint
-}
-
 type HeadPackage struct {
 	Rand    string `json:"rand"`
 	Title   string `json:"title"`
@@ -53,4 +48,30 @@ type BodyPackage struct {
 	Data string `json:"data"`
 	Hash string `json:"hash"`
 	Sign string `json:"sign"`
+}
+
+type UserBroadcast struct {
+	Name       string                    `json:"name"`
+	Login      string                    `json:"login"`
+	Password   []byte                    `json:"password"`
+	Room       uint                      `json:"room"`
+	PrivateKey *rsa.PrivateKey           `json:"privateKey"`
+	F2F        map[string]*rsa.PublicKey `json:"f2f"`
+}
+
+type PackageBroadcast struct {
+	Login   string
+	Address string
+	Key     string
+	Room    uint
+}
+
+type NodeScanner struct {
+	login       string
+	db          *DB
+	Key         string
+	Room        uint
+	Connections map[string]string
+	Address     string
+	AddressR    string
 }

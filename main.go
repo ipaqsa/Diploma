@@ -10,10 +10,17 @@ import (
 )
 
 const (
-	TITLE_MESSAGE  = "MESSAGE!"
-	A_NODE_ADDRESS = "127.0.0.1:8000"
-	B_NODE_ADDRESS = "127.0.0.1:7000"
-	C_NODE_ADDRESS = "192.168.0.104:7000"
+	TITLE_MESSAGE   = "MESSAGE!"
+	A_NODE_ADDRESS  = "127.0.0.1:9000"
+	A_BNODE_ADDRESS = "127.0.0.1:9001"
+	B_NODE_ADDRESS  = "127.0.0.1:9002"
+	B_BNODE_ADDRESS = "127.0.0.1:9003"
+	//C_NODE_ADDRESS  = "127.0.0.1:9004"
+	//C_BNODE_ADDRESS = "127.0.0.1:9005"
+	//D_NODE_ADDRESS  = "127.0.0.1:9006"
+	//D_BNODE_ADDRESS = "127.0.0.1:9007"
+	//E_NODE_ADDRESS  = "127.0.0.1:9008"
+	//E_BNODE_ADDRESS = "127.0.0.1:9009"
 )
 
 func createPackage(title string, data string) *gp.Package {
@@ -28,25 +35,29 @@ func createPackage(title string, data string) *gp.Package {
 	}
 }
 
-func newNode(address string, login string) *gp.Client {
+func newNode(address, addressBroadcast string, login string) *gp.Client {
+	addresses := []string{A_BNODE_ADDRESS, B_BNODE_ADDRESS}
 	user := gp.LoadUser(login)
 	node := gp.NewClient(address, user)
+	nodeBroadcast := node.NewNodeBroadcast(address, addressBroadcast, user.Login, node.StringPublic(), user.Room)
+	go nodeBroadcast.Run(addresses)
 	go gp.NewListener(node).Run(handleFunc)
 	return node
 }
 
 func main() {
-	//stefan := gp.NewUser(gp.GeneratePrivate(gp.Get("AKEY_SIZE").(uint)), "stefan", "St", "12", 2)
-	//alice := gp.NewUser(gp.GeneratePrivate(gp.Get("AKEY_SIZE").(uint)), "alice", "St", "12", 2)
-	//gp.SaveUser(stefan)
-	//gp.SaveUser(alice)
-	//println(gp.IsUser("stefan", "13"))
+	stefan := gp.NewUser(gp.GeneratePrivate(gp.Get("AKEY_SIZE").(uint)), "stefan", "stepa", "12", 2)
+	alice := gp.NewUser(gp.GeneratePrivate(gp.Get("AKEY_SIZE").(uint)), "alice", "alice", "12", 2)
+	gp.SaveUser(stefan)
+	gp.SaveUser(alice)
 
-	aNode := newNode(A_NODE_ADDRESS, "stefan")
-	bNode := newNode(B_NODE_ADDRESS, "alice")
-	aNode.AppendFriend(bNode.Public(), "alice", B_NODE_ADDRESS)
-	aNode.Connect(B_NODE_ADDRESS, handleFunc)
-	bNode.Connect(A_NODE_ADDRESS, handleFunc)
+	aNode := newNode(A_NODE_ADDRESS, A_BNODE_ADDRESS, "stefan")
+	bNode := newNode(B_NODE_ADDRESS, B_BNODE_ADDRESS, "alice")
+
+	time.Sleep(time.Second * 15)
+	aNode.AppendFriend("alice")
+	aNode.Connect("alice", handleFunc)
+	bNode.Connect("stefan", handleFunc)
 	for {
 		pack := createPackage(TITLE_MESSAGE, InputString())
 		res, err := aNode.SendMessageTo("alice", pack)

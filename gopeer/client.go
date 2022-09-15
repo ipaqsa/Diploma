@@ -60,7 +60,17 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 	return result, err
 }
 
-func (client *Client) Connect(address string, handle func(*Client, *Package)) error {
+func (client *Client) Connect(login string, handle func(*Client, *Package)) error {
+	key := client.db.GetKey(login)
+	if key == "" {
+		println("Key is not found")
+		return nil
+	}
+	address := client.db.GetAddress(key)
+	if address == "" {
+		println("Address is not found")
+		return nil
+	}
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		return err
@@ -140,11 +150,22 @@ func (client *Client) ListF2FAddress() []string {
 	return list
 }
 
-func (client *Client) AppendFriend(pub *rsa.PublicKey, login string, address string) {
-	//pub *rsa.PublicKey, login := func(address) BroadCast
+func (client *Client) AppendFriend(login string) {
+	key := client.db.GetKey(login)
+	if key == "" {
+		println("Key not found")
+		return
+	}
+
+	address := client.db.GetAddress(key)
+	if address == "" {
+		println("Address is not found")
+		return
+	}
+
 	CreateDialog(client.user.Login, login)
-	client.user.F2F[login] = pub
-	client.f2f_d[pub] = address
+	client.user.F2F[login] = ParsePublic(key)
+	client.f2f_d[ParsePublic(key)] = address
 }
 
 func (client *Client) RemoveFriend(login string) {
