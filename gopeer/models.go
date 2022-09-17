@@ -12,12 +12,11 @@ type Listener struct {
 }
 
 type User struct {
-	Name       string                    `json:"name"`
-	Login      string                    `json:"login"`
-	Password   []byte                    `json:"password"`
-	Room       uint                      `json:"room"`
-	PrivateKey *rsa.PrivateKey           `json:"privateKey"`
-	F2F        map[string]*rsa.PublicKey `json:"f2f"`
+	Name       string          `json:"name"`
+	Login      string          `json:"login"`
+	Password   []byte          `json:"password"`
+	Room       uint            `json:"room"`
+	PrivateKey *rsa.PrivateKey `json:"privateKey"`
 }
 
 type Client struct {
@@ -28,6 +27,7 @@ type Client struct {
 	connections map[net.Conn]string
 	actions     map[string]chan string
 	mutex       *sync.Mutex
+	f2f         map[string]*rsa.PublicKey
 	f2f_d       map[*rsa.PublicKey]string
 }
 

@@ -6,20 +6,6 @@ import (
 	"time"
 )
 
-//func main() {
-//	addresses := []string{A_NODE_ADDRESS, B_NODE_ADDRESS, C_NODE_ADDRESS, D_NODE_ADDRESS, E_NODE_ADDRESS}
-//	aNode := NewNodeBroadcast(A_NODE_ADDRESS, "alice", "KEY_ALICE", 1)
-//	bNode := NewNodeBroadcast(B_NODE_ADDRESS, "bob", "KEY_BOB", 2)
-//	cNode := NewNodeBroadcast(C_NODE_ADDRESS, "coc", "KEY_COC", 1)
-//	dNode := NewNodeBroadcast(D_NODE_ADDRESS, "dick", "KEY_DICK", 2)
-//	eNode := NewNodeBroadcast(E_NODE_ADDRESS, "egor", "KEY_EGOR", 1)
-//	go aNode.Run(addresses)
-//	go bNode.Run(nil)
-//	go cNode.Run(nil)
-//	go dNode.Run(addresses)
-//	eNode.Run(nil)
-//}
-
 func (client *Client) NewNodeBroadcast(address, addressR, login, key string, room uint) *NodeScanner {
 	dbname := login + "Friends" + ".db"
 	db := DBInit(dbname)
@@ -56,10 +42,10 @@ func handleBroadcastServer(node *NodeScanner) {
 		panic("Server Error")
 	}
 	defer listen.Close()
-	println("BroadcastServer was started with ", node.AddressR)
+	//println("BroadcastServer was started with ", node.AddressR)
 	for {
 		conn, err := listen.Accept()
-		println("Registration-request")
+		//println("Registration-request")
 		if err != nil {
 			break
 		}
@@ -85,20 +71,18 @@ func handleConnection(node *NodeScanner, conn net.Conn) {
 	if err != nil {
 		return
 	}
-	if node.Room == pack.Room {
+	if node.Room == pack.Room && node.login != pack.Login {
 		if node.db.GetKey(pack.Login) == "" {
-			println("Save ", pack.Login)
+			//println("Save", pack.Login)
 			node.db.SetLogin(pack.Login, pack.Key)
 			node.db.SetAddress(pack.Key, pack.Address)
 			node.SendToAddress(pack.Address)
-		}
-		if node.db.GetKey(pack.Login) != pack.Key {
-			println("Update data ", pack.Login)
+		} else if node.db.GetKey(pack.Login) != pack.Key {
+			//println("Update data", pack.Login)
 			node.db.SetLogin(pack.Login, pack.Key)
 			node.db.SetAddress(pack.Key, pack.Address)
-		}
-		if node.db.GetKey(pack.Login) != pack.Address {
-			println("Update address ", pack.Login)
+		} else if node.db.GetKey(pack.Login) != pack.Address {
+			//println("Update address", pack.Login)
 			node.db.SetAddress(pack.Key, pack.Address)
 		}
 	}

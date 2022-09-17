@@ -7,6 +7,7 @@ import (
 )
 
 func Handle(title string, client *Client, pack *Package, handle func(*Client, *Package) string) bool {
+	//println(pack.Head.Title)
 	switch pack.Head.Title {
 	case title:
 		public := ParsePublic(pack.Head.Sender)

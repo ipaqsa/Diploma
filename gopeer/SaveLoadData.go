@@ -1,7 +1,6 @@
 package gopeer
 
 import (
-	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -22,9 +21,6 @@ func LoadUser(login string) *User {
 	plan, _ := ioutil.ReadFile(filename)
 	var data User
 	json.Unmarshal(plan, &data)
-	if data.F2F == nil {
-		data.F2F = make(map[string]*rsa.PublicKey)
-	}
 	return &data
 }
 

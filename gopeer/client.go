@@ -21,7 +21,6 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 		Password:   pswd,
 		Room:       room,
 		PrivateKey: priv,
-		F2F:        make(map[string]*rsa.PublicKey),
 	}
 }
 func NewClient(address string, user *User) *Client {
@@ -32,6 +31,7 @@ func NewClient(address string, user *User) *Client {
 		mapping:     make(map[string]bool),
 		connections: make(map[net.Conn]string),
 		actions:     make(map[string]chan string),
+		f2f:         make(map[string]*rsa.PublicKey),
 		f2f_d:       make(map[*rsa.PublicKey]string),
 	}
 }
@@ -44,15 +44,15 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 	var (
 		err    error
 		result string
-		hash   = HashPublic(client.user.F2F[login])
+		hash   = HashPublic(client.f2f[login])
 	)
 	client.actions[hash] = make(chan string)
 	defer delete(client.actions, hash)
-	client.send(client.user.F2F[login], pack)
+	client.send(client.f2f[login], pack)
 	select {
 	case result = <-client.actions[hash]:
 	case <-time.After(time.Duration(settings.WAIT_TIME) * time.Second):
-		err = errors.New("Time is over")
+		err = errors.New("time is over")
 	}
 	if err == nil {
 		AddMessage(client.user.Login, login, pack)
@@ -128,7 +128,7 @@ func (client *Client) HashPublic() string {
 }
 
 func (client *Client) InF2F(login string) bool {
-	if _, ok := client.user.F2F[login]; ok {
+	if _, ok := client.f2f[login]; ok {
 		return true
 	}
 	return false
@@ -136,7 +136,7 @@ func (client *Client) InF2F(login string) bool {
 
 func (client *Client) ListF2F() []*rsa.PublicKey {
 	var list []*rsa.PublicKey
-	for _, pub := range client.user.F2F {
+	for _, pub := range client.f2f {
 		list = append(list, pub)
 	}
 	return list
@@ -150,26 +150,31 @@ func (client *Client) ListF2FAddress() []string {
 	return list
 }
 
-func (client *Client) AppendFriend(login string) {
-	key := client.db.GetKey(login)
-	if key == "" {
-		println("Key not found")
+func (client *Client) AppendFriends() {
+	members := client.GetAllMembers()
+	if members == nil {
 		return
 	}
+	for _, login := range members {
+		key := client.db.GetKey(login)
+		if key == "" {
+			println("Key is not found from", login, client.user.Login)
+			return
+		}
 
-	address := client.db.GetAddress(key)
-	if address == "" {
-		println("Address is not found")
-		return
+		address := client.db.GetAddress(key)
+		if address == "" {
+			println("Address is not found")
+			return
+		}
+		CreateDialog(client.user.Login, login)
+		client.f2f[login] = ParsePublic(key)
+		client.f2f_d[ParsePublic(key)] = address
 	}
-
-	CreateDialog(client.user.Login, login)
-	client.user.F2F[login] = ParsePublic(key)
-	client.f2f_d[ParsePublic(key)] = address
 }
 
 func (client *Client) RemoveFriend(login string) {
-	delete(client.user.F2F, login)
+	delete(client.f2f, login)
 }
 
 func (client *Client) RemoveFriendAddress(pub *rsa.PublicKey) {

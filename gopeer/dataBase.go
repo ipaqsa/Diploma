@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+//go get github.com/mattn/go-sqlite3
+
 type DB struct {
 	ptr *sql.DB
 	mtx sync.Mutex
@@ -59,8 +61,11 @@ func (db *DB) GetKey(login string) string {
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	var key string
-	row := db.ptr.QueryRow(`SELECT key FROM friendsLogins WHERE login=$1`, login)
-	row.Scan(&key)
+	row := db.ptr.QueryRow(`SELECT key FROM friendsLogins WHERE login=$1 LIMIT 1`, login)
+	err := row.Scan(&key)
+	if err != nil {
+		return ""
+	}
 	return key
 }
 
@@ -68,8 +73,11 @@ func (db *DB) GetAddress(key string) string {
 	db.mtx.Lock()
 	defer db.mtx.Unlock()
 	var address string
-	row := db.ptr.QueryRow(`SELECT key FROM friendsAddresses WHERE login=$1 ORDER BY id LIMIT 1`, key)
-	row.Scan(&address)
+	row := db.ptr.QueryRow(`SELECT address FROM friendsAddresses WHERE key=$1 LIMIT 1`, key)
+	err := row.Scan(&address)
+	if err != nil {
+		return ""
+	}
 	return address
 }
 
@@ -78,6 +86,28 @@ func (db *DB) SizeLogins() int {
 	defer db.mtx.Unlock()
 	var data int
 	row := db.ptr.QueryRow(`SELECT COUNT(*) FROM friendsLogins`)
-	row.Scan(&data)
+	err := row.Scan(&data)
+	if err != nil {
+		return 0
+	}
 	return data
+}
+
+func (client *Client) GetAllMembers() []string {
+	client.db.mtx.Lock()
+	defer client.db.mtx.Unlock()
+	var members []string
+	rows, err := client.db.ptr.Query(`SELECT login FROM friendsLogins`)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var member string
+		if err := rows.Scan(&member); err != nil {
+			return members
+		}
+		members = append(members, member)
+	}
+	return members
 }
