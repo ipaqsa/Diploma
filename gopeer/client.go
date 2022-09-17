@@ -10,11 +10,15 @@ import (
 	"time"
 )
 
+var infoLogger = newLogger("client", "INFO")
+var errorLogger = newLogger("client", "ERROR")
+
 func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uint) *User {
 	//if uniqueLogin(login) != true {
 	//	return nil
 	//}
 	pswd := HashSum([]byte(password))
+	infoLogger.Printf("New user:", login)
 	return &User{
 		Name:       name,
 		Login:      login,
@@ -24,6 +28,7 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 	}
 }
 func NewClient(address string, user *User) *Client {
+	infoLogger.Printf("New node with", address)
 	return &Client{
 		user:        user,
 		address:     address,
@@ -39,6 +44,7 @@ func NewClient(address string, user *User) *Client {
 func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
 	s := client.InF2F(login)
 	if s == false {
+		errorLogger.Printf("Client is not found in F2F:", login)
 		return "", nil
 	}
 	var (
@@ -63,49 +69,52 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 func (client *Client) Connect(login string, handle func(*Client, *Package)) error {
 	key := client.db.GetKey(login)
 	if key == "" {
-		println("Key is not found")
+		errorLogger.Printf("Key is not found", login)
 		return nil
 	}
 	address := client.db.GetAddress(key)
 	if address == "" {
-		println("Address is not found")
+		errorLogger.Printf("Address is not found")
 		return nil
 	}
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
+		errorLogger.Printf("Connection error")
 		return err
 	}
+	infoLogger.Printf("Successful connect to ", login)
 	client.connections[conn] = address
 	go handleConn(conn, client, handle)
 	return nil
 }
 
-func (client *Client) BroadCastLocal() {
-	listenAddr, err := net.ResolveUDPAddr("udp4", ":8827")
-	if err != nil {
-		panic(err)
-	}
-	list, err := net.ListenUDP("udp4", listenAddr)
-	if err != nil {
-		panic(err)
-	}
-	defer list.Close()
-
-	addr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:9000")
-	if err != nil {
-		panic(err)
-	}
-	_, err = list.WriteTo([]byte("data to transmit"), addr)
-	println("Message sent")
-	if err != nil {
-		panic(err)
-	}
-}
+//func (client *Client) BroadCastLocal() {
+//	listenAddr, err := net.ResolveUDPAddr("udp4", ":8827")
+//	if err != nil {
+//		panic(err)
+//	}
+//	list, err := net.ListenUDP("udp4", listenAddr)
+//	if err != nil {
+//		panic(err)
+//	}
+//	defer list.Close()
+//
+//	addr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:9000")
+//	if err != nil {
+//		panic(err)
+//	}
+//	_, err = list.WriteTo([]byte("data to transmit"), addr)
+//	infoLogger.Printf("Broadcast message was sent")
+//	if err != nil {
+//		panic(err)
+//	}
+//}
 
 func (client *Client) Disconnect(address string) {
 	for conn, addr := range client.connections {
 		if addr == address {
 			delete(client.connections, conn)
+			infoLogger.Printf("Successful disconnect")
 			conn.Close()
 		}
 	}
@@ -158,16 +167,17 @@ func (client *Client) AppendFriends() {
 	for _, login := range members {
 		key := client.db.GetKey(login)
 		if key == "" {
-			println("Key is not found from", login, client.user.Login)
+			errorLogger.Printf("Key is not found", login)
 			return
 		}
 
 		address := client.db.GetAddress(key)
 		if address == "" {
-			println("Address is not found")
+			errorLogger.Printf("Address is not found")
 			return
 		}
 		CreateDialog(client.user.Login, login)
+		infoLogger.Printf("Dialog is was created")
 		client.f2f[login] = ParsePublic(key)
 		client.f2f_d[ParsePublic(key)] = address
 	}
@@ -198,6 +208,7 @@ func (client *Client) send(receiver *rsa.PublicKey, pack *Package) {
 			[]byte{},
 		))
 	}
+	infoLogger.Printf("Message was sent")
 }
 
 func (client *Client) redirect(pack *Package, sender net.Conn) {

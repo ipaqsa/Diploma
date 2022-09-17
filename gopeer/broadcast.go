@@ -6,10 +6,14 @@ import (
 	"time"
 )
 
+var infoLoggerBroadcast = newLogger("broadcast", "INFO")
+var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
+
 func (client *Client) NewNodeBroadcast(address, addressR, login, key string, room uint) *NodeScanner {
 	dbname := login + "Friends" + ".db"
 	db := DBInit(dbname)
 	client.db = db
+	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
 		login:       login,
 		db:          db,
@@ -39,13 +43,14 @@ func (node *NodeScanner) Run(addresses []string) {
 func handleBroadcastServer(node *NodeScanner) {
 	listen, err := net.Listen("tcp", node.AddressR)
 	if err != nil {
+		errorLoggerBroadcast.Printf("Server creating error")
 		panic("Server Error")
 	}
 	defer listen.Close()
-	//println("BroadcastServer was started with ", node.AddressR)
+	infoLoggerBroadcast.Printf("BroadcastServer was started with ", node.AddressR)
 	for {
 		conn, err := listen.Accept()
-		//println("Registration-request")
+		infoLoggerBroadcast.Printf("New connection")
 		if err != nil {
 			break
 		}
@@ -102,4 +107,5 @@ func (node *NodeScanner) SendToAddress(address string) {
 	defer conn.Close()
 	js_pack, _ := json.Marshal(pack)
 	conn.Write(js_pack)
+	infoLogger.Printf("Message was sent to", address)
 }
