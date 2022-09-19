@@ -143,10 +143,18 @@ func (client *Client) InF2F(login string) bool {
 	return false
 }
 
-func (client *Client) ListF2F() []*rsa.PublicKey {
-	var list []*rsa.PublicKey
-	for _, pub := range client.f2f {
-		list = append(list, pub)
+func (client *Client) GetLoginFromF2f(key *rsa.PublicKey) string {
+	for k, v := range client.f2f {
+		if StringPublic(v) == StringPublic(key) {
+			return k
+		}
+	}
+	return ""
+}
+func (client *Client) ListF2F() []string {
+	var list []string
+	for login, _ := range client.f2f {
+		list = append(list, login)
 	}
 	return list
 }
@@ -170,17 +178,17 @@ func (client *Client) AppendFriends() {
 		}
 		key := client.dbFriends.GetKey(login)
 		if key == "" {
-			errorLogger.Printf("Key is not found", login)
+			errorLogger.Printf("Key was not found", login)
 			return
 		}
 
 		address := client.dbFriends.GetAddress(key)
 		if address == "" {
-			errorLogger.Printf("Address is not found")
+			errorLogger.Printf("Address was not found")
 			return
 		}
 		CreateDialog(client.user.Login, login)
-		infoLogger.Printf("Dialog is was created")
+		infoLogger.Printf("Dialog was created")
 		client.f2f[login] = ParsePublic(key)
 		client.f2f_d[ParsePublic(key)] = address
 		infoLogger.Printf("%s add to %s F2F", login, address)

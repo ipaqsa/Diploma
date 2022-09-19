@@ -14,6 +14,33 @@ type DB struct {
 }
 
 func (client *Client) DBUsersInit() {
+	db, err := sql.Open("sqlite3", "dialogs.db")
+	if err != nil {
+		return
+	}
+
+	client.dbUsers = &DB{
+		ptr: db,
+	}
+}
+
+//func (client *Client) CreateDialogTable(dialog string)  {
+//	_, err := client.dbDialogs.ptr.Exec(
+//		`CREATE TABLE IF NOT EXISTS $1 (
+//    	 VARCHAR(75) UNIQUE,
+//    	data VARCHAR(500),
+//    	password VARCHAR(25),
+//    	name VARCHAR(30),
+//    	room VARCHAR(1),
+//    	PRIMARY KEY(login)
+//    	);
+//	`, dialog)
+//	if err != nil {
+//		return
+//	}
+//}
+
+func (client *Client) DBDialogsInit() {
 	db, err := sql.Open("sqlite3", "users.db")
 	if err != nil {
 		return
@@ -31,7 +58,7 @@ func (client *Client) DBUsersInit() {
 	if err != nil {
 		return
 	}
-	client.dbUsers = &DB{
+	client.dbDialogs = &DB{
 		ptr: db,
 	}
 }

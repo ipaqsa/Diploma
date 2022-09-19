@@ -7,27 +7,6 @@ import (
 	"os"
 )
 
-//func SaveUser(user *User) {
-//	filename := user.Login + ".json"
-//	userJson, err := json.Marshal(user)
-//	if err != nil {
-//		panic(err)
-//	}
-//	ioutil.WriteFile(filename, userJson, os.ModePerm)
-//}
-
-//func LoadUser(login string) *User {
-//	filename := login + ".json"
-//	plan, _ := ioutil.ReadFile(filename)
-//	var data User
-//	json.Unmarshal(plan, &data)
-//	return &data
-//}
-
-type Dialog struct {
-	Messages []Package `json:"messages"`
-}
-
 func CreateDialog(from, to string) *Dialog {
 	dialog := Dialog{
 		Messages: make([]Package, 1),
@@ -50,9 +29,9 @@ func SaveDialog(from, to string, dialog *Dialog) {
 	}
 	summary := one + "to" + two
 	//id := HashSum([]byte(summary))
-	for _, msg := range dialog.Messages {
-		println(msg.Body.Data)
-	}
+	//for _, msg := range dialog.Messages {
+	//	println(msg.Body.Data)
+	//}
 	dialogJSON, err := json.Marshal(dialog)
 	if err != nil {
 		panic(err)

@@ -19,8 +19,22 @@ type User struct {
 	PrivateKey *rsa.PrivateKey `json:"privateKey"`
 }
 
+type Dialog struct {
+	Messages []BodyPackage `json:"messages"`
+}
+
+func CreateDialogHushSum() []byte {
+	messages := GetMessages()
+	var sum string
+	for message := range messages {
+		sum += message
+	}
+	return HashSum([]byte(sum))
+}
+
 type Client struct {
 	dbFriends   *DB
+	dbDialogs   *DB
 	dbUsers     *DB
 	user        *User
 	address     string
