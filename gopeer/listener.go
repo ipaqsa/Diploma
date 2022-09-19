@@ -1,7 +1,6 @@
 package gopeer
 
 import (
-	"fmt"
 	"net"
 	"strings"
 )
@@ -33,22 +32,23 @@ func NewListener(client *Client) *Listener {
 		client: client,
 	}
 }
-func (listener *Listener) HandleBroadCast() {
-	pc, err := net.ListenPacket("udp4", ":9000")
-	if err != nil {
-		panic(err)
-	}
-	defer pc.Close()
 
-	buf := make([]byte, 1024)
-	for {
-		n, addr, err := pc.ReadFrom(buf)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("%s sent this: %s\n", addr, buf[:n])
-	}
-}
+//func (listener *Listener) HandleBroadCast() {
+//	pc, err := net.ListenPacket("udp4", ":9000")
+//	if err != nil {
+//		panic(err)
+//	}
+//	defer pc.Close()
+//
+//	buf := make([]byte, 1024)
+//	for {
+//		n, addr, err := pc.ReadFrom(buf)
+//		if err != nil {
+//			panic(err)
+//		}
+//		fmt.Printf("%s sent this: %s\n", addr, buf[:n])
+//	}
+//}
 
 func (listener *Listener) Run(handle func(*Client, *Package)) error {
 	var err error

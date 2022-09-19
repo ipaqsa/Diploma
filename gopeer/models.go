@@ -20,7 +20,8 @@ type User struct {
 }
 
 type Client struct {
-	db          *DB
+	dbFriends   *DB
+	dbUsers     *DB
 	user        *User
 	address     string
 	mapping     map[string]bool
@@ -60,10 +61,11 @@ type UserBroadcast struct {
 }
 
 type PackageBroadcast struct {
-	Login   string
-	Address string
-	Key     string
-	Room    uint
+	Login            string
+	Address          string
+	AddressBroadcast string
+	Key              string
+	Room             uint
 }
 
 type NodeScanner struct {
@@ -75,3 +77,7 @@ type NodeScanner struct {
 	Address     string
 	AddressR    string
 }
+
+const (
+	END_BYTES = "\000\001\002\003\004\005"
+)

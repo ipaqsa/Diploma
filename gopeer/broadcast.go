@@ -3,6 +3,7 @@ package gopeer
 import (
 	"encoding/json"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -11,8 +12,8 @@ var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
 
 func (client *Client) NewNodeBroadcast(address, addressR, login, key string, room uint) *NodeScanner {
 	dbname := login + "Friends" + ".db"
-	db := DBInit(dbname)
-	client.db = db
+	db := DBFriendsInit(dbname)
+	client.dbFriends = db
 	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
 		login:       login,
@@ -32,11 +33,11 @@ func (node *NodeScanner) Run(addresses []string) {
 		if addresses != nil {
 			for _, address := range addresses {
 				if address != node.Address {
-					node.SendToAddress(address)
+					go node.SendToAddress(address)
 				}
 			}
 		}
-		time.Sleep(time.Second * 15)
+		time.Sleep(time.Second * 30)
 	}
 }
 
@@ -47,7 +48,7 @@ func handleBroadcastServer(node *NodeScanner) {
 		panic("Server Error")
 	}
 	defer listen.Close()
-	infoLoggerBroadcast.Printf("BroadcastServer was started with ", node.AddressR)
+	infoLoggerBroadcast.Printf("BroadcastServer was started with %s", node.AddressR)
 	for {
 		conn, err := listen.Accept()
 		infoLoggerBroadcast.Printf("New connection")
@@ -71,6 +72,10 @@ func handleConnection(node *NodeScanner, conn net.Conn) {
 			break
 		}
 		message += string(buffer[:length])
+		if strings.HasSuffix(message, END_BYTES) {
+			message = strings.TrimSuffix(message, END_BYTES)
+			break
+		}
 	}
 	err := json.Unmarshal([]byte(message), &pack)
 	if err != nil {
@@ -78,34 +83,46 @@ func handleConnection(node *NodeScanner, conn net.Conn) {
 	}
 	if node.Room == pack.Room && node.login != pack.Login {
 		if node.db.GetKey(pack.Login) == "" {
-			//println("Save", pack.Login)
+			infoLoggerBroadcast.Printf("Save %s", pack.Login)
 			node.db.SetLogin(pack.Login, pack.Key)
 			node.db.SetAddress(pack.Key, pack.Address)
 			node.SendToAddress(pack.Address)
 		} else if node.db.GetKey(pack.Login) != pack.Key {
-			//println("Update data", pack.Login)
+			infoLoggerBroadcast.Printf("Update data %s", pack.Login)
 			node.db.SetLogin(pack.Login, pack.Key)
 			node.db.SetAddress(pack.Key, pack.Address)
-		} else if node.db.GetKey(pack.Login) != pack.Address {
-			//println("Update address", pack.Login)
+		} else if node.db.GetAddress(pack.Key) != pack.Address {
+			infoLoggerBroadcast.Printf("Update address %s", pack.Login)
 			node.db.SetAddress(pack.Key, pack.Address)
+		} else {
+			errorLoggerBroadcast.Printf("Unknown %s %s", pack.Login, pack.Address)
 		}
+		infoLoggerBroadcast.Printf("Answer was sent")
+		node.SendToAddress(pack.AddressBroadcast)
+	} else {
+		errorLoggerBroadcast.Printf("Unknown FULL %s %s", pack.Login, pack.Address)
 	}
+
 }
 
 func (node *NodeScanner) SendToAddress(address string) {
 	var pack = PackageBroadcast{
-		Login:   node.login,
-		Address: node.Address,
-		Key:     node.Key,
-		Room:    node.Room,
+		Login:            node.login,
+		Address:          node.Address,
+		AddressBroadcast: node.AddressR,
+		Key:              node.Key,
+		Room:             node.Room,
 	}
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
-	js_pack, _ := json.Marshal(pack)
-	conn.Write(js_pack)
-	infoLogger.Printf("Message was sent to", address)
+	JSONPack, _ := json.Marshal(pack)
+	_, err = conn.Write(JSONPack)
+	if err != nil {
+		errorLoggerBroadcast.Printf("Message sending error")
+		return
+	}
+	infoLoggerBroadcast.Printf("Message was sent to %s", address)
 }

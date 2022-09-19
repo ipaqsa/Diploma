@@ -13,7 +13,30 @@ type DB struct {
 	mtx sync.Mutex
 }
 
-func DBInit(filename string) *DB {
+func (client *Client) DBUsersInit() {
+	db, err := sql.Open("sqlite3", "users.db")
+	if err != nil {
+		return
+	}
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS users (
+    	login VARCHAR(75) UNIQUE,
+    	key VARCHAR(500),
+    	password VARCHAR(25),
+    	name VARCHAR(30),
+    	room VARCHAR(1),
+    	PRIMARY KEY(login)
+    	);
+	`)
+	if err != nil {
+		return
+	}
+	client.dbUsers = &DB{
+		ptr: db,
+	}
+}
+
+func DBFriendsInit(filename string) *DB {
 	db, err := sql.Open("sqlite3", filename)
 	if err != nil {
 		return nil
@@ -22,6 +45,19 @@ func DBInit(filename string) *DB {
 		`CREATE TABLE IF NOT EXISTS friendsLogins (
     	login VARCHAR(75) UNIQUE,
     	key VARCHAR(500),
+    	PRIMARY KEY(login)
+    	);
+	`)
+	if err != nil {
+		return nil
+	}
+	_, err = db.Exec(
+		`CREATE TABLE IF NOT EXISTS users (
+    	login VARCHAR(75) UNIQUE,
+    	key VARCHAR(500),
+    	password VARCHAR(300),
+    	name VARCHAR(30),
+    	room VARCHAR(1),
     	PRIMARY KEY(login)
     	);
 	`)
@@ -41,6 +77,14 @@ func DBInit(filename string) *DB {
 	return &DB{
 		ptr: db,
 	}
+}
+
+func (client *Client) SaveUser(user *User) error {
+	client.dbUsers.mtx.Lock()
+	defer client.dbUsers.mtx.Unlock()
+	_, err := client.dbUsers.ptr.Exec(`INSERT INTO users (login, key, password, name, room) VALUES ($1, $2, $3, $5, $6)`,
+		user.Login, StringPrivate(user.PrivateKey), user.Password, user.Name, user.Room)
+	return err
 }
 
 func (db *DB) SetLogin(login, key string) error {
@@ -68,6 +112,21 @@ func (db *DB) GetKey(login string) string {
 	}
 	return key
 }
+func GetUserFromDB(user *User, password string) uint {
+	psswd := HashSum([]byte(password))
+	db, err := sql.Open("sqlite3", "users.db")
+	if err != nil {
+		return 0
+	}
+	var string_key string
+	row := db.QueryRow(`SELECT * FROM users WHERE login=$1 AND password=$2 LIMIT 1`, user.Login, psswd)
+	err = row.Scan(&user.Login, &string_key, &user.Password, &user.Name, &user.Room)
+	if err != nil {
+		return 0
+	}
+	user.PrivateKey = ParsePrivate(string_key)
+	return 1
+}
 
 func (db *DB) GetAddress(key string) string {
 	db.mtx.Lock()
@@ -94,10 +153,10 @@ func (db *DB) SizeLogins() int {
 }
 
 func (client *Client) GetAllMembers() []string {
-	client.db.mtx.Lock()
-	defer client.db.mtx.Unlock()
+	client.dbFriends.mtx.Lock()
+	defer client.dbFriends.mtx.Unlock()
 	var members []string
-	rows, err := client.db.ptr.Query(`SELECT login FROM friendsLogins`)
+	rows, err := client.dbFriends.ptr.Query(`SELECT login FROM friendsLogins`)
 	if err != nil {
 		return nil
 	}

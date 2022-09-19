@@ -18,7 +18,7 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 	//	return nil
 	//}
 	pswd := HashSum([]byte(password))
-	infoLogger.Printf("New user:", login)
+	infoLogger.Printf("New user: %s", login)
 	return &User{
 		Name:       name,
 		Login:      login,
@@ -28,7 +28,7 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 	}
 }
 func NewClient(address string, user *User) *Client {
-	infoLogger.Printf("New node with", address)
+	infoLogger.Printf("New node with %s", address)
 	return &Client{
 		user:        user,
 		address:     address,
@@ -44,7 +44,7 @@ func NewClient(address string, user *User) *Client {
 func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
 	s := client.InF2F(login)
 	if s == false {
-		errorLogger.Printf("Client is not found in F2F:", login)
+		errorLogger.Printf("Client is not found in F2F: %s", login)
 		return "", nil
 	}
 	var (
@@ -67,12 +67,12 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 }
 
 func (client *Client) Connect(login string, handle func(*Client, *Package)) error {
-	key := client.db.GetKey(login)
+	key := client.dbFriends.GetKey(login)
 	if key == "" {
-		errorLogger.Printf("Key is not found", login)
+		errorLogger.Printf("Key is not found %s", login)
 		return nil
 	}
-	address := client.db.GetAddress(key)
+	address := client.dbFriends.GetAddress(key)
 	if address == "" {
 		errorLogger.Printf("Address is not found")
 		return nil
@@ -82,7 +82,7 @@ func (client *Client) Connect(login string, handle func(*Client, *Package)) erro
 		errorLogger.Printf("Connection error")
 		return err
 	}
-	infoLogger.Printf("Successful connect to ", login)
+	infoLogger.Printf("Successful connect to %s", login)
 	client.connections[conn] = address
 	go handleConn(conn, client, handle)
 	return nil
@@ -165,13 +165,16 @@ func (client *Client) AppendFriends() {
 		return
 	}
 	for _, login := range members {
-		key := client.db.GetKey(login)
+		if _, ok := client.f2f[login]; ok {
+			continue
+		}
+		key := client.dbFriends.GetKey(login)
 		if key == "" {
 			errorLogger.Printf("Key is not found", login)
 			return
 		}
 
-		address := client.db.GetAddress(key)
+		address := client.dbFriends.GetAddress(key)
 		if address == "" {
 			errorLogger.Printf("Address is not found")
 			return
@@ -180,6 +183,7 @@ func (client *Client) AppendFriends() {
 		infoLogger.Printf("Dialog is was created")
 		client.f2f[login] = ParsePublic(key)
 		client.f2f_d[ParsePublic(key)] = address
+		infoLogger.Printf("%s add to %s F2F", login, address)
 	}
 }
 
@@ -329,7 +333,7 @@ func (client *Client) decrypt(pack *Package) *Package {
 	}
 }
 
-func (client *Client) GetUser() *User {
+func (client *Client) GetUserINFO() *User {
 	return client.user
 }
 
