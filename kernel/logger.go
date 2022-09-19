@@ -1,4 +1,4 @@
-package gopeer
+package kernel
 
 import (
 	"fmt"

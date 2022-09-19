@@ -1,4 +1,4 @@
-package gopeer
+package kernel
 
 type SettingsType map[string]interface{}
 type SettingsStruct struct {

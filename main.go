@@ -1,7 +1,7 @@
 package main
 
 import (
-	gp "NetworkHiddebLake/gopeer"
+	kn "NetworkHiddebLake/kernel"
 	"bufio"
 	"fmt"
 	"os"
@@ -16,22 +16,22 @@ const (
 	BNODE_ADDRESS = "192.168.0.104:8001"
 )
 
-func createPackage(title string, data string) *gp.Package {
-	return &gp.Package{
-		Head: gp.HeadPackage{
+func createPackage(title string, data string) *kn.Package {
+	return &kn.Package{
+		Head: kn.HeadPackage{
 			Title: title,
 		},
-		Body: gp.BodyPackage{
+		Body: kn.BodyPackage{
 			Date: time.Now().Format("2006-01-02 15:04:05"),
 			Data: data,
 		},
 	}
 }
 
-func Registration(address string, user *gp.User) {
+func Registration(address string, user *kn.User) {
 	//addresses := createAddresses()
 	//user := gp.LoadUser(login)
-	node := gp.NewClient(address, user)
+	node := kn.NewClient(address, user)
 	node.DBUsersInit()
 	node.SaveUser(user)
 	//nodeBroadcast := node.NewNodeBroadcast(address, addressBroadcast, user.Login, node.StringPublic(), user.Room)
@@ -40,23 +40,23 @@ func Registration(address string, user *gp.User) {
 }
 
 func Authentication(address, addressBroadcast, login, password string) string {
-	user := &gp.User{
+	user := &kn.User{
 		Login:      login,
 		Password:   nil,
 		Room:       0,
 		PrivateKey: nil,
 	}
-	status := gp.GetUserFromDB(user, password)
+	status := kn.GetUserFromDB(user, password)
 	if status == 1 {
 		addresses := createAddresses()
-		node := gp.NewClient(address, user)
+		node := kn.NewClient(address, user)
 		nodeBroadcast := node.NewNodeBroadcast(address, addressBroadcast, user.Login, node.StringPublic(), user.Room)
 		go nodeBroadcast.Run(addresses)
 	}
 	return "ERROR Authentication"
 }
 
-func AppendFriends(node *gp.Client) {
+func AppendFriends(node *kn.Client) {
 	for {
 		time.Sleep(time.Second * 2)
 		node.AppendFriends()
@@ -106,13 +106,13 @@ func main() {
 	//}
 }
 
-func handleFunc(client *gp.Client, pack *gp.Package) {
-	gp.Handle(TITLE_MESSAGE, client, pack, handleMessage)
+func handleFunc(client *kn.Client, pack *kn.Package) {
+	kn.Handle(TITLE_MESSAGE, client, pack, handleMessage)
 }
 
-func handleMessage(client *gp.Client, pack *gp.Package) string {
-	sender := gp.ParsePublic(pack.Head.Sender)
-	fmt.Printf("[%s] => '%s'\n", gp.HashPublic(sender), pack.Body.Data)
+func handleMessage(client *kn.Client, pack *kn.Package) string {
+	sender := kn.ParsePublic(pack.Head.Sender)
+	fmt.Printf("[%s] => '%s'\n", kn.HashPublic(sender), pack.Body.Data)
 	return "ok"
 }
 
