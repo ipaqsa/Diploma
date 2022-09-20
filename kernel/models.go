@@ -23,14 +23,14 @@ type Dialog struct {
 	Messages []BodyPackage `json:"messages"`
 }
 
-func CreateDialogHushSum() []byte {
-	messages := GetMessages()
-	var sum string
-	for message := range messages {
-		sum += message
-	}
-	return HashSum([]byte(sum))
-}
+//func CreateDialogHushSum() []byte {
+//	messages := GetMessages()
+//	var sum string
+//	for message := range messages {
+//		sum += message
+//	}
+//	return HashSum([]byte(sum))
+//}
 
 type Client struct {
 	dbFriends   *DB
@@ -89,7 +89,7 @@ type NodeScanner struct {
 	Room        uint
 	Connections map[string]string
 	Address     string
-	AddressR    string
+	AddressB    string
 }
 
 const (

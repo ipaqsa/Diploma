@@ -22,44 +22,70 @@ func (client *Client) NewNodeBroadcast(address, addressR, login, key string, roo
 		Room:        room,
 		Connections: make(map[string]string),
 		Address:     address,
-		AddressR:    addressR,
+		AddressB:    addressR,
 	}
 }
 
-func (node *NodeScanner) Run(addresses []string) {
-	go handleBroadcastServer(node)
+func (node *NodeScanner) BroadcastMSG() {
+	conn, err := net.ListenPacket("udp4", ":9001")
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	addr, err := net.ResolveUDPAddr("udp4", "192.168.0.255:9001")
+	if err != nil {
+		errorLoggerBroadcast.Printf(err.Error())
+	}
+	var pack = PackageBroadcast{
+		Login:            node.login,
+		Address:          node.Address,
+		AddressBroadcast: node.AddressB,
+		Key:              node.Key,
+		Room:             node.Room,
+	}
+
+	JSONPack, _ := json.Marshal(pack)
+	_, err = conn.WriteTo(JSONPack, addr)
+	if err != nil {
+		errorLoggerBroadcast.Printf("Message sending error")
+		return
+	}
+	infoLoggerBroadcast.Printf("Message was sent")
+}
+
+func (node *NodeScanner) Run() {
+	go handleConnection(node)
 	time.Sleep(time.Second * 2)
 	for {
-		if addresses != nil {
-			for _, address := range addresses {
-				if address != node.Address {
-					go node.SendToAddress(address)
-				}
-			}
-		}
+		node.BroadcastMSG()
 		time.Sleep(time.Second * 30)
 	}
 }
 
-func handleBroadcastServer(node *NodeScanner) {
-	listen, err := net.Listen("tcp", node.AddressR)
-	if err != nil {
-		errorLoggerBroadcast.Printf("Server creating error")
-		panic("Server Error")
-	}
-	defer listen.Close()
-	infoLoggerBroadcast.Printf("BroadcastServer was started with %s", node.AddressR)
-	for {
-		conn, err := listen.Accept()
-		infoLoggerBroadcast.Printf("New connection")
-		if err != nil {
-			break
-		}
-		go handleConnection(node, conn)
-	}
-}
+//func handleBroadcastServer(node *NodeScanner) {
+//
+//listen, err := net.Listen("tcp", node.AddressR)
+//if err != nil {
+//	errorLoggerBroadcast.Printf("Server creating error")
+//	panic("Server Error")
+//}
+//defer listen.Close()
+//infoLoggerBroadcast.Printf("BroadcastServer was started with %s", node.AddressR)
+//for {
+//	conn, err := listen.Accept()
+//	infoLoggerBroadcast.Printf("New connection")
+//	if err != nil {
+//		break
+//	}
+//	go handleConnection(node, conn)
+//}
+//}
 
-func handleConnection(node *NodeScanner, conn net.Conn) {
+func handleConnection(node *NodeScanner) {
+	conn, err := net.ListenPacket("udp4", "9001")
+	if err != nil {
+		panic(err)
+	}
 	defer conn.Close()
 	var (
 		buffer  = make([]byte, 512)
@@ -67,7 +93,8 @@ func handleConnection(node *NodeScanner, conn net.Conn) {
 		pack    PackageBroadcast
 	)
 	for {
-		length, err := conn.Read(buffer)
+		println("Wait")
+		length, _, err := conn.ReadFrom(buffer)
 		if err != nil {
 			break
 		}
@@ -77,7 +104,7 @@ func handleConnection(node *NodeScanner, conn net.Conn) {
 			break
 		}
 	}
-	err := json.Unmarshal([]byte(message), &pack)
+	err = json.Unmarshal([]byte(message), &pack)
 	if err != nil {
 		return
 	}
@@ -109,7 +136,7 @@ func (node *NodeScanner) SendToAddress(address string) {
 	var pack = PackageBroadcast{
 		Login:            node.login,
 		Address:          node.Address,
-		AddressBroadcast: node.AddressR,
+		AddressBroadcast: node.AddressB,
 		Key:              node.Key,
 		Room:             node.Room,
 	}
