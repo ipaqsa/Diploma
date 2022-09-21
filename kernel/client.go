@@ -14,9 +14,6 @@ var infoLogger = newLogger("client", "INFO")
 var errorLogger = newLogger("client", "ERROR")
 
 func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uint) *User {
-	//if uniqueLogin(login) != true {
-	//	return nil
-	//}
 	pswd := HashSum([]byte(password))
 	infoLogger.Printf("New user: %s", login)
 	return &User{
@@ -61,7 +58,7 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 		err = errors.New("time is over")
 	}
 	if err == nil {
-		AddMessage(client.user.Login, login, pack)
+		//AddMessage(client.user.Login, login, pack)
 	}
 	return result, err
 }
@@ -187,7 +184,7 @@ func (client *Client) AppendFriends() {
 			errorLogger.Printf("Address was not found")
 			return
 		}
-		CreateDialog(client.user.Login, login)
+		//CreateDialog(client.user.Login, login)
 		infoLogger.Printf("Dialog was created")
 		client.f2f[login] = ParsePublic(key)
 		client.f2f_d[ParsePublic(key)] = address

@@ -3,6 +3,7 @@ package kernel
 import (
 	"encoding/json"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -10,38 +11,35 @@ import (
 var infoLoggerBroadcast = newLogger("broadcast", "INFO")
 var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
 
-func (client *Client) NewNodeBroadcast(address, addressR, login, key string, room uint) *NodeScanner {
+func (client *Client) NewNodeBroadcast(address, login, key string, room uint) *NodeScanner {
 	dbname := login + "Friends" + ".db"
 	db := DBFriendsInit(dbname)
 	client.dbFriends = db
 	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
+		Port:        address,
 		login:       login,
 		db:          db,
 		Key:         key,
 		Room:        room,
 		Connections: make(map[string]string),
-		Address:     address,
-		AddressB:    addressR,
 	}
 }
 
 func (node *NodeScanner) BroadcastMSG() {
-	conn, err := net.ListenPacket("udp4", ":9001")
+	conn, err := net.ListenPacket("udp4", IncrementPortFromAddress(node.Port, 1))
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
-	addr, err := net.ResolveUDPAddr("udp4", "192.168.0.255:9001")
+	addr, err := net.ResolveUDPAddr("udp4", "192.168.0.255"+IncrementPortFromAddress(node.Port, 2))
 	if err != nil {
 		errorLoggerBroadcast.Printf(err.Error())
 	}
 	var pack = PackageBroadcast{
-		Login:            node.login,
-		Address:          node.Address,
-		AddressBroadcast: node.AddressB,
-		Key:              node.Key,
-		Room:             node.Room,
+		Login: node.login,
+		Key:   node.Key,
+		Room:  node.Room,
 	}
 
 	JSONPack, _ := json.Marshal(pack)
@@ -58,87 +56,88 @@ func (node *NodeScanner) Run() {
 	time.Sleep(time.Second * 2)
 	for {
 		node.BroadcastMSG()
-		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * 5)
 	}
 }
 
-//func handleBroadcastServer(node *NodeScanner) {
-//
-//listen, err := net.Listen("tcp", node.AddressR)
-//if err != nil {
-//	errorLoggerBroadcast.Printf("Server creating error")
-//	panic("Server Error")
-//}
-//defer listen.Close()
-//infoLoggerBroadcast.Printf("BroadcastServer was started with %s", node.AddressR)
-//for {
-//	conn, err := listen.Accept()
-//	infoLoggerBroadcast.Printf("New connection")
-//	if err != nil {
-//		break
-//	}
-//	go handleConnection(node, conn)
-//}
-//}
+func DecrementPortFromAddress(address string) string {
+	splited := strings.Split(address, ":")
+	port_i, _ := strconv.Atoi(splited[1])
+	port_i--
+	splited[1] = strconv.Itoa(port_i)
+	address_n := strings.Join(splited, ":")
+	return address_n
+}
+func IncrementPortFromAddress(address string, n int) string {
+	splited := strings.Split(address, ":")
+	port_i, _ := strconv.Atoi(splited[1])
+	port_i += n
+	splited[1] = strconv.Itoa(port_i)
+	address_n := strings.Join(splited, ":")
+	return address_n
+}
+
+func (node *NodeScanner) PackageAnalysis(message string, pack *PackageBroadcast, addr net.Addr) int {
+	err := json.Unmarshal([]byte(message), &pack)
+	if err != nil {
+		return 0
+	}
+	if node.Room == pack.Room && node.login != pack.Login {
+		address := DecrementPortFromAddress(addr.String())
+		if node.db.GetKey(pack.Login) == "" {
+			infoLoggerBroadcast.Printf("Save %s", pack.Login)
+			node.db.SetLogin(pack.Login, pack.Key)
+			node.db.SetAddress(pack.Key, address)
+			return 1
+		} else if node.db.GetKey(pack.Login) != pack.Key {
+			infoLoggerBroadcast.Printf("Update data %s", pack.Login)
+			node.db.SetLogin(pack.Login, pack.Key)
+			node.db.SetAddress(pack.Key, address)
+			return 1
+		} else if node.db.GetAddress(pack.Key) != address {
+			infoLoggerBroadcast.Printf("Update address %s", pack.Login)
+			node.db.SetAddress(pack.Key, address)
+			return 1
+		} else {
+			errorLoggerBroadcast.Printf("Unknown %s %s", pack.Login, addr.String())
+		}
+	} else {
+		errorLoggerBroadcast.Printf("Unknown FULL %s %s", pack.Login, addr.String())
+		return 2
+	}
+	return 1
+}
 
 func handleConnection(node *NodeScanner) {
-	conn, err := net.ListenPacket("udp4", "9001")
+	conn, err := net.ListenPacket("udp4", IncrementPortFromAddress(node.Port, 2))
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 	var (
-		buffer  = make([]byte, 512)
+		buffer  = make([]byte, 1024)
 		message string
 		pack    PackageBroadcast
 	)
 	for {
-		println("Wait")
-		length, _, err := conn.ReadFrom(buffer)
+		length, addr, err := conn.ReadFrom(buffer)
 		if err != nil {
 			break
 		}
 		message += string(buffer[:length])
-		if strings.HasSuffix(message, END_BYTES) {
-			message = strings.TrimSuffix(message, END_BYTES)
-			break
+		status := node.PackageAnalysis(message, &pack, addr)
+		if status != 0 {
+			message = ""
 		}
-	}
-	err = json.Unmarshal([]byte(message), &pack)
-	if err != nil {
-		return
-	}
-	if node.Room == pack.Room && node.login != pack.Login {
-		if node.db.GetKey(pack.Login) == "" {
-			infoLoggerBroadcast.Printf("Save %s", pack.Login)
-			node.db.SetLogin(pack.Login, pack.Key)
-			node.db.SetAddress(pack.Key, pack.Address)
-			node.SendToAddress(pack.Address)
-		} else if node.db.GetKey(pack.Login) != pack.Key {
-			infoLoggerBroadcast.Printf("Update data %s", pack.Login)
-			node.db.SetLogin(pack.Login, pack.Key)
-			node.db.SetAddress(pack.Key, pack.Address)
-		} else if node.db.GetAddress(pack.Key) != pack.Address {
-			infoLoggerBroadcast.Printf("Update address %s", pack.Login)
-			node.db.SetAddress(pack.Key, pack.Address)
-		} else {
-			errorLoggerBroadcast.Printf("Unknown %s %s", pack.Login, pack.Address)
-		}
-		infoLoggerBroadcast.Printf("Answer was sent")
-		node.SendToAddress(pack.AddressBroadcast)
-	} else {
-		errorLoggerBroadcast.Printf("Unknown FULL %s %s", pack.Login, pack.Address)
 	}
 
 }
 
 func (node *NodeScanner) SendToAddress(address string) {
 	var pack = PackageBroadcast{
-		Login:            node.login,
-		Address:          node.Address,
-		AddressBroadcast: node.AddressB,
-		Key:              node.Key,
-		Room:             node.Room,
+		Login: node.login,
+		Key:   node.Key,
+		Room:  node.Room,
 	}
 	conn, err := net.Dial("tcp", address)
 	if err != nil {

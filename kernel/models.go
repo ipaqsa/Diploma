@@ -75,23 +75,16 @@ type UserBroadcast struct {
 }
 
 type PackageBroadcast struct {
-	Login            string
-	Address          string
-	AddressBroadcast string
-	Key              string
-	Room             uint
+	Login string
+	Key   string
+	Room  uint
 }
 
 type NodeScanner struct {
+	Port        string
 	login       string
 	db          *DB
 	Key         string
 	Room        uint
 	Connections map[string]string
-	Address     string
-	AddressB    string
 }
-
-const (
-	END_BYTES = "\000\001\002\003\004\005"
-)

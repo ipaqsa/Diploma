@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"database/sql"
+	"errors"
 	_ "github.com/mattn/go-sqlite3"
 	"sync"
 )
@@ -13,13 +14,13 @@ type DB struct {
 	mtx sync.Mutex
 }
 
-func (client *Client) DBUsersInit() {
+func (client *Client) DBDialogsInit() {
 	db, err := sql.Open("sqlite3", "dialogs.db")
 	if err != nil {
 		return
 	}
 
-	client.dbUsers = &DB{
+	client.dbDialogs = &DB{
 		ptr: db,
 	}
 }
@@ -40,9 +41,10 @@ func (client *Client) DBUsersInit() {
 //	}
 //}
 
-func (client *Client) DBDialogsInit() {
+func (client *Client) DBUsersInit() {
 	db, err := sql.Open("sqlite3", "users.db")
 	if err != nil {
+		println("ERROR: Create DB")
 		return
 	}
 	_, err = db.Exec(
@@ -56,9 +58,10 @@ func (client *Client) DBDialogsInit() {
     	);
 	`)
 	if err != nil {
+		println(err.Error())
 		return
 	}
-	client.dbDialogs = &DB{
+	client.dbUsers = &DB{
 		ptr: db,
 	}
 }
@@ -72,19 +75,6 @@ func DBFriendsInit(filename string) *DB {
 		`CREATE TABLE IF NOT EXISTS friendsLogins (
     	login VARCHAR(75) UNIQUE,
     	key VARCHAR(500),
-    	PRIMARY KEY(login)
-    	);
-	`)
-	if err != nil {
-		return nil
-	}
-	_, err = db.Exec(
-		`CREATE TABLE IF NOT EXISTS users (
-    	login VARCHAR(75) UNIQUE,
-    	key VARCHAR(500),
-    	password VARCHAR(300),
-    	name VARCHAR(30),
-    	room VARCHAR(1),
     	PRIMARY KEY(login)
     	);
 	`)
@@ -107,6 +97,9 @@ func DBFriendsInit(filename string) *DB {
 }
 
 func (client *Client) SaveUser(user *User) error {
+	if client.dbUsers.ptr == nil {
+		return errors.New("ERROR: BD ptr is nil")
+	}
 	client.dbUsers.mtx.Lock()
 	defer client.dbUsers.mtx.Unlock()
 	_, err := client.dbUsers.ptr.Exec(`INSERT INTO users (login, key, password, name, room) VALUES ($1, $2, $3, $5, $6)`,
