@@ -48,7 +48,6 @@ func Authentication(address, login, password string) (string, *kn.Client) {
 		node := kn.NewClient(address, user)
 		node.DBUsersInit()
 		node.DBDialogsInit()
-		node.CreateDialogTable("mac_to_linux")
 		nodeBroadcast := node.NewNodeBroadcast(address, user.Login, node.StringPublic(), user.Room)
 		go kn.NewListener(node).Run(handleFunc)
 		go nodeBroadcast.Run()
@@ -74,7 +73,7 @@ func main() {
 	time.Sleep(time.Second * 25)
 	for {
 		pack := createPackage(TITLE_MESSAGE, InputString())
-		r, err := node.SendMessageTo(node.ListF2F()[0], pack, handleFunc)
+		r, err := node.SendMessageTo("linux", pack, handleFunc)
 		if err != nil {
 			println(err.Error())
 			return
@@ -89,7 +88,7 @@ func handleFunc(client *kn.Client, pack *kn.Package) {
 }
 
 func handleMessage(client *kn.Client, pack *kn.Package) string {
-	dialogName := kn.GetDialogName(pack.Head.Sender, client.GetUserINFO().Login)
+	dialogName := kn.GetDialogName(client.GetLogin(pack.Head.Sender), client.GetUserINFO().Login)
 	client.AddMessage(dialogName, pack)
 	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLogin(pack.Head.Sender), pack.Body.Data)
 	return "ok"

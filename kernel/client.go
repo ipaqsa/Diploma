@@ -75,6 +75,7 @@ func (client *Client) SendMessageTo(login string, pack *Package, handle func(*Cl
 	}
 	if err == nil {
 		dialogName := GetDialogName(client.user.Login, login)
+		pack.Head.Sender = ""
 		client.AddMessage(dialogName, pack)
 	}
 	return result, err

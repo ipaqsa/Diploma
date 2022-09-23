@@ -42,18 +42,27 @@ func (client *Client) AddMessage(dialog string, pack *Package) {
 	message := &Message{
 		Date: pack.Body.Date,
 		Data: pack.Body.Data,
-		From: client.GetLogin(pack.Head.Sender),
+	}
+	if pack.Head.Sender == "" {
+		message.From = client.user.Login
+	} else {
+		message.From = client.GetLogin(pack.Head.Sender)
 	}
 	query := "INSERT INTO " + dialog + " (date, sender, data) VALUES ($1, $2, $3)"
 
 	_, err := client.dbDialogs.ptr.Exec(query, message.Date, message.From, message.Data)
 	if err != nil {
+		println(query)
+		println(message.Data)
+		println(message.Date)
+		println(message.From)
 		println(err.Error())
 		return
 	}
 }
 
 func (client *Client) DBUsersInit() {
+	client.f2f[client.user.Login] = client.Public()
 	db, err := sql.Open("sqlite3", "users.db")
 	if err != nil {
 		println(err.Error())

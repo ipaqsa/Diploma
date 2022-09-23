@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+var infoLoggerListener = newLogger("listener", "INFO")
+var errorLoggerListener = newLogger("listener", "ERROR")
+
 func Handle(title string, client *Client, pack *Package, handle func(*Client, *Package) string) bool {
 	//println(pack.Head.Title)
 	switch pack.Head.Title {
@@ -83,8 +86,6 @@ func handleConn(conn net.Conn, client *Client, handle func(*Client, *Package)) {
 		}
 		client.mutex.Lock()
 		client.mutex.Unlock()
-		dialogName := GetDialogName(decPack.Head.Sender, client.user.Login)
-		client.AddMessage(dialogName, decPack)
 		handle(client, decPack)
 	}
 }
