@@ -12,8 +12,7 @@ var infoLoggerBroadcast = newLogger("broadcast", "INFO")
 var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
 
 func (client *Client) NewNodeBroadcast(address, login, key string, room uint) *NodeScanner {
-	dbname := login + "Friends" + ".db"
-	db := DBFriendsInit(dbname)
+	db := DBFriendsInit()
 	client.dbFriends = db
 	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
@@ -82,7 +81,6 @@ func (node *NodeScanner) PackageAnalysis(message string, pack *PackageBroadcast,
 	if err != nil {
 		return 0
 	}
-	println(node.Room, pack.Room, node.login, pack.Login)
 	if node.Room == pack.Room && node.login != pack.Login {
 		address := DecrementPortFromAddress(addr.String())
 		if node.db.GetKey(pack.Login) == "" {

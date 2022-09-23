@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 	"sync"
 )
 
@@ -41,7 +42,7 @@ func (client *Client) AddMessage(dialog string, pack *Package) {
 	message := &Message{
 		Date: pack.Body.Date,
 		Data: pack.Body.Data,
-		From: pack.Head.Sender,
+		From: client.GetLogin(pack.Head.Sender),
 	}
 	query := "INSERT INTO " + dialog + " (date, sender, data) VALUES ($1, $2, $3)"
 
@@ -77,8 +78,11 @@ func (client *Client) DBUsersInit() {
 	}
 }
 
-func DBFriendsInit(filename string) *DB {
-	db, err := sql.Open("sqlite3", filename)
+func DBFriendsInit() *DB {
+	if exists("friends.db") == false {
+		os.Remove("friends.db")
+	}
+	db, err := sql.Open("sqlite3", "friends.db")
 	if err != nil {
 		return nil
 	}

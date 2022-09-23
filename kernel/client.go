@@ -50,7 +50,7 @@ func GetDialogName(sender, to string) string {
 	return one + "to" + two
 }
 
-func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
+func (client *Client) SendMessageTo(login string, pack *Package, handle func(*Client, *Package)) (string, error) {
 	s := client.InF2F(login)
 	if s == false {
 		errorLogger.Printf("Client is not found in F2F: %s", login)
@@ -63,6 +63,10 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 	)
 	client.actions[hash] = make(chan string)
 	defer delete(client.actions, hash)
+	err = client.Connect(login, handle)
+	if err != nil {
+		return "", err
+	}
 	client.send(client.f2f[login], pack)
 	select {
 	case result = <-client.actions[hash]:
@@ -322,6 +326,7 @@ func (client *Client) decrypt(pack *Package) *Package {
 			Sender:  Base64Encode(publicBytes),
 			Session: Base64Encode(session)},
 		Body: BodyPackage{
+			Date: string(dateBytes),
 			Data: string(dataBytes),
 			Hash: pack.Body.Hash,
 			Sign: pack.Body.Sign,
@@ -331,4 +336,8 @@ func (client *Client) decrypt(pack *Package) *Package {
 
 func (client *Client) GetUserINFO() *User {
 	return client.user
+}
+
+func (client *Client) GetLogin(key string) string {
+	return client.GetLoginFromF2f(ParsePublic(key))
 }

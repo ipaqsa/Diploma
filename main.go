@@ -67,27 +67,20 @@ func AppendFriends(node *kn.Client) {
 }
 
 func main() {
-	//user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), "mac", "Stefan", "12", 1)
-	//Registration(NODE_ADDRESS, user)
-	//status, node := Authentication(NODE_ADDRESS, "mac", "12")
-	//println("AUTHENTICATION Status", status)
-	//time.Sleep(time.Second * 25)
-	//pack := createPackage(TITLE_MESSAGE, "Hello")
-	//r, err := node.SendMessageTo(node.ListF2F()[0], pack)
-	//if err != nil {
-	//	return
-	//}
-	//println(r)
-	//println(node)
-	//encr, err := kn.EncryptFile("bestdev06", "./data/]fv .jpg")
-	//if err != nil {
-	//	println(err.Error())
-	//}
-	//kn.SaveFileFromByte("./data/image.jpg", encr)
-	//err := kn.EncryptAndSave("bestdev", "./data/]fv .jpg")
-	//if err != nil {
-	//	println(err.Error())
-	//}
+	user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), "mac", "Stefan", "12", 1)
+	Registration(NODE_ADDRESS, user)
+	status, node := Authentication(NODE_ADDRESS, "mac", "12")
+	println("AUTHENTICATION Status", status)
+	time.Sleep(time.Second * 25)
+	for {
+		pack := createPackage(TITLE_MESSAGE, InputString())
+		r, err := node.SendMessageTo(node.ListF2F()[0], pack, handleFunc)
+		if err != nil {
+			println(err.Error())
+			return
+		}
+		println(r)
+	}
 
 }
 
@@ -96,8 +89,9 @@ func handleFunc(client *kn.Client, pack *kn.Package) {
 }
 
 func handleMessage(client *kn.Client, pack *kn.Package) string {
-	sender := kn.ParsePublic(pack.Head.Sender)
-	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLoginFromF2f(sender), pack.Body.Data)
+	dialogName := kn.GetDialogName(pack.Head.Sender, client.GetUserINFO().Login)
+	client.AddMessage(dialogName, pack)
+	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLogin(pack.Head.Sender), pack.Body.Data)
 	return "ok"
 }
 
