@@ -33,23 +33,6 @@ func NewListener(client *Client) *Listener {
 	}
 }
 
-//func (listener *Listener) HandleBroadCast() {
-//	pc, err := net.ListenPacket("udp4", ":9000")
-//	if err != nil {
-//		panic(err)
-//	}
-//	defer pc.Close()
-//
-//	buf := make([]byte, 1024)
-//	for {
-//		n, addr, err := pc.ReadFrom(buf)
-//		if err != nil {
-//			panic(err)
-//		}
-//		fmt.Printf("%s sent this: %s\n", addr, buf[:n])
-//	}
-//}
-
 func (listener *Listener) Run(handle func(*Client, *Package)) error {
 	var err error
 	listener.listen, err = net.Listen("tcp", listener.client.address)
@@ -100,6 +83,8 @@ func handleConn(conn net.Conn, client *Client, handle func(*Client, *Package)) {
 		}
 		client.mutex.Lock()
 		client.mutex.Unlock()
+		dialogName := GetDialogName(decPack.Head.Sender, client.user.Login)
+		client.AddMessage(dialogName, decPack)
 		handle(client, decPack)
 	}
 }

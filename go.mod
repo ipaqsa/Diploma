@@ -1,4 +1,4 @@
-module NetworkHiddebLake
+module Diploma
 
 go 1.18
 

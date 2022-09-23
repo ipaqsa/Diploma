@@ -19,32 +19,43 @@ func (client *Client) DBDialogsInit() {
 	if err != nil {
 		return
 	}
-
 	client.dbDialogs = &DB{
 		ptr: db,
 	}
 }
 
-//func (client *Client) CreateDialogTable(dialog string)  {
-//	_, err := client.dbDialogs.ptr.Exec(
-//		`CREATE TABLE IF NOT EXISTS $1 (
-//    	 VARCHAR(75) UNIQUE,
-//    	data VARCHAR(500),
-//    	password VARCHAR(25),
-//    	name VARCHAR(30),
-//    	room VARCHAR(1),
-//    	PRIMARY KEY(login)
-//    	);
-//	`, dialog)
-//	if err != nil {
-//		return
-//	}
-//}
+func (client *Client) CreateDialogTable(dialog string) {
+	client.dbDialogs.mtx.Lock()
+	defer client.dbDialogs.mtx.Unlock()
+	query := "CREATE TABLE IF NOT EXISTS " + dialog + " (id INTEGER PRIMARY KEY AUTOINCREMENT, date VARCHAR(25), sender VARCHAR(30), data TEXT);"
+	_, err := client.dbDialogs.ptr.Exec(query)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+}
+
+func (client *Client) AddMessage(dialog string, pack *Package) {
+	client.dbDialogs.mtx.Lock()
+	defer client.dbDialogs.mtx.Unlock()
+	message := &Message{
+		Date: pack.Body.Date,
+		Data: pack.Body.Data,
+		From: pack.Head.Sender,
+	}
+	query := "INSERT INTO " + dialog + " (date, sender, data) VALUES ($1, $2, $3)"
+
+	_, err := client.dbDialogs.ptr.Exec(query, message.Date, message.From, message.Data)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+}
 
 func (client *Client) DBUsersInit() {
 	db, err := sql.Open("sqlite3", "users.db")
 	if err != nil {
-		println("ERROR: Create DB")
+		println(err.Error())
 		return
 	}
 	_, err = db.Exec(
@@ -133,18 +144,19 @@ func (db *DB) GetKey(login string) string {
 	return key
 }
 func GetUserFromDB(user *User, password string) uint {
-	psswd := HashSum([]byte(password))
+	psswd := Base64Encode(HashSum([]byte(password)))
+	var stringKey string
 	db, err := sql.Open("sqlite3", "users.db")
 	if err != nil {
+		println(err.Error())
 		return 0
 	}
-	var string_key string
 	row := db.QueryRow(`SELECT * FROM users WHERE login=$1 AND password=$2 LIMIT 1`, user.Login, psswd)
-	err = row.Scan(&user.Login, &string_key, &user.Password, &user.Name, &user.Room)
+	err = row.Scan(&user.Login, &stringKey, &user.Password, &user.Name, &user.Room)
 	if err != nil {
 		return 0
 	}
-	user.PrivateKey = ParsePrivate(string_key)
+	user.PrivateKey = ParsePrivate(stringKey)
 	return 1
 }
 
@@ -189,4 +201,33 @@ func (client *Client) GetAllMembers() []string {
 		members = append(members, member)
 	}
 	return members
+}
+
+func (client *Client) GetDialog(dialogName string) []Message {
+	client.dbDialogs.mtx.Lock()
+	defer client.dbDialogs.mtx.Unlock()
+	var dialog []Message
+	query := "SELECT * FROM " + dialogName
+	rows, err := client.dbDialogs.ptr.Query(query)
+	if err != nil {
+		return nil
+	}
+	for rows.Next() {
+		var message Message
+		if err := rows.Scan(&message.ID, &message.Date, &message.From, &message.Data); err != nil {
+			return dialog
+		}
+		dialog = append(dialog, message)
+	}
+	return dialog
+}
+
+func (client *Client) GetHashFromDialog(dialogName string) string {
+	var summary string
+	dialog := client.GetDialog(dialogName)
+	for _, msg := range dialog {
+		msgSummary := msg.Data + msg.Date + msg.From
+		summary += msgSummary
+	}
+	return Base64Encode(HashSum([]byte(summary)))
 }

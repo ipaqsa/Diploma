@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 )
 
@@ -82,6 +83,7 @@ func DecryptRSA(priv *rsa.PrivateKey, datai []byte) []byte {
 func EncryptAES(key, data []byte) []byte {
 	block, err := aes.NewCipher(key)
 	if err != nil {
+		println(err.Error())
 		return nil
 	}
 	blockSize := block.BlockSize()
@@ -119,6 +121,17 @@ func paddingPKCS5(cipherText []byte, blockSize int) []byte {
 	padding := blockSize - len(cipherText)%blockSize
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(cipherText, padText...)
+}
+
+func paddingPassword(password string) ([]byte, error) {
+	psswd := []byte(password)
+	pass_len := len(password)
+	padding := 16 - pass_len
+	if pass_len > 16 {
+		return nil, errors.New("password len is more then 16 char")
+	}
+	padPass := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(psswd, padPass...), nil
 }
 
 func unpaddingPKCS5(data []byte) []byte {

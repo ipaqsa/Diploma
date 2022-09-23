@@ -1,19 +1,17 @@
 package main
 
 import (
-	kn "NetworkHiddebLake/kernel"
+	kn "Diploma/kernel"
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
 const (
 	TITLE_MESSAGE = "MESSAGE!"
-	//NODE_ADDRESS  = "192.168.0.104:8000"
-	NODE_ADDRESS = ":8000"
+	NODE_ADDRESS  = ":7000"
 )
 
 func createPackage(title string, data string) *kn.Package {
@@ -30,9 +28,8 @@ func createPackage(title string, data string) *kn.Package {
 
 func Registration(address string, user *kn.User) {
 	node := kn.NewClient(address, user)
-	println("Client register")
 	node.DBUsersInit()
-	println("DB create")
+	node.DBDialogsInit()
 	err := node.SaveUser(user)
 	if err != nil {
 		return
@@ -42,16 +39,20 @@ func Registration(address string, user *kn.User) {
 func Authentication(address, login, password string) (string, *kn.Client) {
 	user := &kn.User{
 		Login:      login,
-		Password:   nil,
+		Password:   "",
 		Room:       0,
 		PrivateKey: nil,
 	}
 	status := kn.GetUserFromDB(user, password)
 	if status == 1 {
 		node := kn.NewClient(address, user)
+		node.DBUsersInit()
+		node.DBDialogsInit()
+		node.CreateDialogTable("mac_to_linux")
 		nodeBroadcast := node.NewNodeBroadcast(address, user.Login, node.StringPublic(), user.Room)
 		go kn.NewListener(node).Run(handleFunc)
 		go nodeBroadcast.Run()
+		go AppendFriends(node)
 		return "OK", node
 	} else {
 		return "ERROR Authentication", nil
@@ -60,30 +61,34 @@ func Authentication(address, login, password string) (string, *kn.Client) {
 
 func AppendFriends(node *kn.Client) {
 	for {
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 5)
 		node.AppendFriends()
 	}
 }
 
 func main() {
-	println("Registration:")
-	println("Enter name:")
-	name := InputString()
-	println("Enter login")
-	login := InputString()
-	println("Enter password")
-	password := InputString()
-	println("Enter room")
-	room := InputString()
-	room_i, _ := strconv.Atoi(room)
-	room_ui := uint(room_i)
-	user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), login, name, password, room_ui)
-	Registration(NODE_ADDRESS, user)
-	println("Successful registration")
-	status, node := Authentication(NODE_ADDRESS, login, password)
-	println("AUTHENTICATION Status", status)
-	time.Sleep(time.Second * 10)
-	println(node)
+	//user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), "mac", "Stefan", "12", 1)
+	//Registration(NODE_ADDRESS, user)
+	//status, node := Authentication(NODE_ADDRESS, "mac", "12")
+	//println("AUTHENTICATION Status", status)
+	//time.Sleep(time.Second * 25)
+	//pack := createPackage(TITLE_MESSAGE, "Hello")
+	//r, err := node.SendMessageTo(node.ListF2F()[0], pack)
+	//if err != nil {
+	//	return
+	//}
+	//println(r)
+	//println(node)
+	//encr, err := kn.EncryptFile("bestdev06", "./data/]fv .jpg")
+	//if err != nil {
+	//	println(err.Error())
+	//}
+	//kn.SaveFileFromByte("./data/image.jpg", encr)
+	//err := kn.EncryptAndSave("bestdev", "./data/]fv .jpg")
+	//if err != nil {
+	//	println(err.Error())
+	//}
+
 }
 
 func handleFunc(client *kn.Client, pack *kn.Package) {

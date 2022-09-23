@@ -14,23 +14,17 @@ type Listener struct {
 type User struct {
 	Name       string          `json:"name"`
 	Login      string          `json:"login"`
-	Password   []byte          `json:"password"`
+	Password   string          `json:"password"`
 	Room       uint            `json:"room"`
 	PrivateKey *rsa.PrivateKey `json:"privateKey"`
 }
 
-type Dialog struct {
-	Messages []BodyPackage `json:"messages"`
+type Message struct {
+	ID   int    `json:"id"`
+	From string `json:"from"`
+	Date string `json:"date"`
+	Data string `json:"data"`
 }
-
-//func CreateDialogHushSum() []byte {
-//	messages := GetMessages()
-//	var sum string
-//	for message := range messages {
-//		sum += message
-//	}
-//	return HashSum([]byte(sum))
-//}
 
 type Client struct {
 	dbFriends   *DB

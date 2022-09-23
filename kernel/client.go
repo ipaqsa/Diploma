@@ -14,7 +14,7 @@ var infoLogger = newLogger("client", "INFO")
 var errorLogger = newLogger("client", "ERROR")
 
 func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uint) *User {
-	pswd := HashSum([]byte(password))
+	pswd := Base64Encode(HashSum([]byte(password)))
 	infoLogger.Printf("New user: %s", login)
 	return &User{
 		Name:       name,
@@ -24,6 +24,7 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 		PrivateKey: priv,
 	}
 }
+
 func NewClient(address string, user *User) *Client {
 	infoLogger.Printf("New node with %s", address)
 	return &Client{
@@ -36,6 +37,17 @@ func NewClient(address string, user *User) *Client {
 		f2f:         make(map[string]*rsa.PublicKey),
 		f2f_d:       make(map[*rsa.PublicKey]string),
 	}
+}
+func GetDialogName(sender, to string) string {
+	var one, two string
+	if sender > to {
+		one = sender
+		two = to
+	} else {
+		one = to
+		two = sender
+	}
+	return one + "to" + two
 }
 
 func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
@@ -58,7 +70,8 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 		err = errors.New("time is over")
 	}
 	if err == nil {
-		//AddMessage(client.user.Login, login, pack)
+		dialogName := GetDialogName(client.user.Login, login)
+		client.AddMessage(dialogName, pack)
 	}
 	return result, err
 }
@@ -66,12 +79,12 @@ func (client *Client) SendMessageTo(login string, pack *Package) (string, error)
 func (client *Client) Connect(login string, handle func(*Client, *Package)) error {
 	key := client.dbFriends.GetKey(login)
 	if key == "" {
-		errorLogger.Printf("Key is not found %s", login)
+		errorLogger.Printf("Key was not found %s", login)
 		return nil
 	}
 	address := client.dbFriends.GetAddress(key)
 	if address == "" {
-		errorLogger.Printf("Address is not found")
+		errorLogger.Printf("Address was not found")
 		return nil
 	}
 	conn, err := net.Dial("tcp", address)
@@ -84,28 +97,6 @@ func (client *Client) Connect(login string, handle func(*Client, *Package)) erro
 	go handleConn(conn, client, handle)
 	return nil
 }
-
-//func (client *Client) BroadCastLocal() {
-//	listenAddr, err := net.ResolveUDPAddr("udp4", ":8827")
-//	if err != nil {
-//		panic(err)
-//	}
-//	list, err := net.ListenUDP("udp4", listenAddr)
-//	if err != nil {
-//		panic(err)
-//	}
-//	defer list.Close()
-//
-//	addr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:9000")
-//	if err != nil {
-//		panic(err)
-//	}
-//	_, err = list.WriteTo([]byte("data to transmit"), addr)
-//	infoLogger.Printf("Broadcast message was sent")
-//	if err != nil {
-//		panic(err)
-//	}
-//}
 
 func (client *Client) Disconnect(address string) {
 	for conn, addr := range client.connections {
@@ -184,10 +175,10 @@ func (client *Client) AppendFriends() {
 			errorLogger.Printf("Address was not found")
 			return
 		}
-		//CreateDialog(client.user.Login, login)
 		infoLogger.Printf("Dialog was created")
 		client.f2f[login] = ParsePublic(key)
 		client.f2f_d[ParsePublic(key)] = address
+		client.CreateDialogTable(GetDialogName(client.user.Login, login))
 		infoLogger.Printf("%s add to %s F2F", login, address)
 	}
 }
@@ -341,5 +332,3 @@ func (client *Client) decrypt(pack *Package) *Package {
 func (client *Client) GetUserINFO() *User {
 	return client.user
 }
-
-//BroadCast IsUser, UpdateUser, UpdateDialog
