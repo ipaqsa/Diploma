@@ -9,8 +9,8 @@ var infoLoggerListener = newLogger("listener", "INFO")
 var errorLoggerListener = newLogger("listener", "ERROR")
 
 func Handle(title string, client *Client, pack *Package, handle func(*Client, *Package) string) bool {
-	//println(pack.Head.Title)
-	switch pack.Head.Title {
+	splited := strings.Split(pack.Head.Title, ":")
+	switch splited[0] {
 	case title:
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{

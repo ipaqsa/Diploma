@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	TITLE_MESSAGE = "MESSAGE!"
+	TITLE_MESSAGE = "MSG"
+	TITLE_FILE    = "FILE:"
 	NODE_ADDRESS  = ":7000"
 )
 
@@ -22,6 +23,20 @@ func createPackage(title string, data string) *kn.Package {
 		Body: kn.BodyPackage{
 			Date: time.Now().Format("2006-01-02 15:04:05"),
 			Data: data,
+		},
+	}
+}
+func createFilePackage(path string) *kn.Package {
+	splited := strings.Split(path, "/")
+	filename := splited[len(splited)-1]
+	bytes, _ := kn.GetFileBytes(path)
+	return &kn.Package{
+		Head: kn.HeadPackage{
+			Title: TITLE_FILE + filename,
+		},
+		Body: kn.BodyPackage{
+			Date: time.Now().Format("2006-01-02 15:04:05"),
+			Data: kn.Base64Encode(bytes),
 		},
 	}
 }
@@ -49,7 +64,7 @@ func Authentication(address, login, password string) (string, *kn.Client) {
 		node.DBUsersInit()
 		node.DBDialogsInit()
 		nodeBroadcast := node.NewNodeBroadcast(address, user.Login, node.StringPublic(), user.Room)
-		go kn.NewListener(node).Run(handleFunc)
+		go kn.NewListener(node).Run(handleFileFunc)
 		go nodeBroadcast.Run()
 		go AppendFriends(node)
 		return "OK", node
@@ -71,26 +86,35 @@ func main() {
 	status, node := Authentication(NODE_ADDRESS, "mac", "12")
 	println("AUTHENTICATION Status", status)
 	time.Sleep(time.Second * 25)
-	for {
-		pack := createPackage(TITLE_MESSAGE, InputString())
-		r, err := node.SendMessageTo("linux", pack, handleFunc)
-		if err != nil {
-			println(err.Error())
-			return
-		}
-		println(r)
+	//for {
+	//pack := createPackage(TITLE_MESSAGE, InputString())
+	pack := createFilePackage("./data/img.jpg")
+	r, err := node.SendMessageTo("linux", pack, handleFileFunc)
+	if err != nil {
+		println(err.Error())
+		return
 	}
-
+	println(r)
+	//}
 }
 
-func handleFunc(client *kn.Client, pack *kn.Package) {
+func handleMSGFunc(client *kn.Client, pack *kn.Package) {
 	kn.Handle(TITLE_MESSAGE, client, pack, handleMessage)
+}
+
+func handleFileFunc(client *kn.Client, pack *kn.Package) {
+	kn.Handle(TITLE_FILE, client, pack, handleFile)
 }
 
 func handleMessage(client *kn.Client, pack *kn.Package) string {
 	dialogName := kn.GetDialogName(client.GetLogin(pack.Head.Sender), client.GetUserINFO().Login)
 	client.AddMessage(dialogName, pack)
 	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLogin(pack.Head.Sender), pack.Body.Data)
+	return "ok"
+}
+func handleFile(client *kn.Client, pack *kn.Package) string {
+	filename := strings.Split(pack.Head.Title, ":")[1]
+	kn.SaveFileFromByte("./data/"+filename, kn.Base64Decode(pack.Body.Data))
 	return "ok"
 }
 
