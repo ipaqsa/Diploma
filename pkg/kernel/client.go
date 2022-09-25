@@ -187,7 +187,7 @@ func (client *Client) AppendFriends() {
 			client.CreateDialogTable(GetDialogName(client.user.Login, login))
 			infoLogger.Printf("%s add to %s F2F", login, address)
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 4)
 	}
 
 }
@@ -219,9 +219,10 @@ func (client *Client) send(receiver *rsa.PublicKey, pack *Package) {
 	}
 	infoLogger.Printf("Message was sent")
 }
+
 func (client *Client) RegisterDataSender() {
 	pack := CreateRegistrationPackage(client.user)
-	if pack != nil {
+	if pack == nil {
 		errorLogger.Printf("Registration pack create")
 		return
 	}
@@ -237,9 +238,10 @@ func (client *Client) broadcastSend(pack *Package) {
 		if user != client.user.Login {
 			_, err := client.SendMessageTo(user, pack)
 			if err != nil {
-				errorLogger.Printf("Pack sent to %s", user)
+				errorLogger.Printf("Register pack was sent to %s %s", user, err.Error())
 				continue
 			}
+			infoLogger.Printf("Register pack was sent to %s", user)
 		}
 	}
 }

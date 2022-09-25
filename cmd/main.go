@@ -25,17 +25,21 @@ func Registration() int {
 	node.DBUsersInit()
 	node.DBDialogsInit()
 	node.DBHashesInit()
+	nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
+	go nodeBroadcast.Run()
+	go kn.NewListener(node).Run()
 	go node.RegisterDataSender()
 	println("Please wait 10 seconds to register")
 	time.Sleep(time.Second * 10)
 	err := node.SaveUser(user)
 	if err != nil {
+		println(err.Error())
 		return 0
 	}
 	return 1
 }
 
-func Authentication(address, login, password string) (string, *kn.Client) {
+func Authentication(login, password string) (string, *kn.Client) {
 	user := &kn.User{
 		Login:      login,
 		Password:   "",
@@ -44,13 +48,13 @@ func Authentication(address, login, password string) (string, *kn.Client) {
 	}
 	status := kn.GetUserFromDB(user, password)
 	if status == 1 {
-		node := kn.NewClient(address, user)
+		node := kn.NewClient(NODE_ADDRESS, user)
 		node.DBUsersInit()
 		node.DBDialogsInit()
-		nodeBroadcast := node.NewNodeBroadcast(address, user.Login, node.StringPublic(), user.Room)
-		go node.RegisterDataSender()
-		go kn.NewListener(node).Run()
+		nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
 		go nodeBroadcast.Run()
+		go kn.NewListener(node).Run()
+		go node.RegisterDataSender()
 		return "OK", node
 	} else {
 		return "ERROR Authentication", nil

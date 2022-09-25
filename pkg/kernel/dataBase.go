@@ -84,7 +84,7 @@ func (client *Client) DBUsersInit() {
 }
 
 func (client *Client) DBHashesInit() {
-	db, err := sql.Open("sqlite3", "./data/externals")
+	db, err := sql.Open("sqlite3", "./data/externals.db")
 	if err != nil {
 		return
 	}
@@ -106,6 +106,7 @@ func (client *Client) DBHashesInit() {
 func (client *Client) AddHash(msg, date, login string) error {
 	var user User
 	err := json.Unmarshal(Base64Decode(msg), &user)
+	println(user.Name)
 	if err != nil {
 		return err
 	}
@@ -115,7 +116,7 @@ func (client *Client) AddHash(msg, date, login string) error {
 	}
 	client.dbExternals.mtx.Lock()
 	defer client.dbExternals.mtx.Unlock()
-	_, err = client.dbUsers.ptr.Exec(`INSERT INTO hashes (login, date, hash) VALUES ($1, $2)`, login, date, sumUser)
+	_, err = client.dbExternals.ptr.Exec(`INSERT INTO hashes (login, date, hash) VALUES ($1, $2, $3)`, login, date, sumUser)
 	return err
 }
 

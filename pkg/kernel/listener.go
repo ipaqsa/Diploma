@@ -162,6 +162,7 @@ func handleFile(client *Client, pack *Package) string {
 
 func handleRegistration(client *Client, pack *Package) string {
 	login := strings.Split(pack.Head.Title, ":")[1]
+	println(login, pack.Head.Title)
 	err := client.AddHash(pack.Body.Data, pack.Body.Date, login)
 	if err != nil {
 		return ""
