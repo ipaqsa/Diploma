@@ -1,15 +1,17 @@
 package kernel
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
 )
 
 const (
-	TITLE_MESSAGE      = "MSG"
-	TITLE_FILE         = "FILE"
-	TITLE_REGISTRATION = "REGISTER"
+	TITLE_MESSAGE        = "MSG"
+	TITLE_FILE           = "FILE"
+	TITLE_REGISTRATION   = "REGISTER"
+	TITLE_AUTHENTICATION = "AUTH"
 )
 
 var infoLoggerListener = newLogger("listener", "INFO")
@@ -18,6 +20,16 @@ var errorLoggerListener = newLogger("listener", "ERROR")
 func Handle(client *Client, pack *Package) bool {
 	splited := strings.Split(pack.Head.Title, ":")
 	switch splited[0] {
+	case TITLE_AUTHENTICATION:
+		public := ParsePublic(pack.Head.Sender)
+		client.send(public, &Package{
+			Head: HeadPackage{
+				Title: "_" + splited[0],
+			},
+			Body: BodyPackage{
+				Data: handleAuthentication(client, pack),
+			},
+		})
 	case TITLE_REGISTRATION:
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
@@ -168,4 +180,26 @@ func handleRegistration(client *Client, pack *Package) string {
 		return ""
 	}
 	return "ok"
+}
+
+func handleAuthentication(client *Client, pack *Package) string {
+	login := strings.Split(pack.Head.Title, ":")[1]
+	println(login, pack.Head.Title)
+	hash := client.GetHash(login)
+	if hash == "" {
+		return "no"
+	}
+	var user User
+	err := json.Unmarshal(Base64Decode(pack.Body.Date), &user)
+	if err != nil {
+		return "no"
+	}
+	hashNew, err := HashSumUser(&user)
+	if err != nil {
+		return "no"
+	}
+	if hash == hashNew {
+		return "ok"
+	}
+	return "no"
 }

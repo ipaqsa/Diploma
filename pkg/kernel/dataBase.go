@@ -106,7 +106,6 @@ func (client *Client) DBHashesInit() {
 func (client *Client) AddHash(msg, date, login string) error {
 	var user User
 	err := json.Unmarshal(Base64Decode(msg), &user)
-	println(user.Name)
 	if err != nil {
 		return err
 	}
@@ -120,9 +119,21 @@ func (client *Client) AddHash(msg, date, login string) error {
 	return err
 }
 
+func (client *Client) GetHash(login string) string {
+	client.dbExternals.mtx.Lock()
+	defer client.dbExternals.mtx.Unlock()
+	var hash string
+	row := client.dbExternals.ptr.QueryRow(`SELECT hash FROM hashes WHERE login=$1 LIMIT 1`, login)
+	err := row.Scan(&hash)
+	if err != nil {
+		return ""
+	}
+	return hash
+}
+
 func (client *Client) DBFriendsInit() {
 	if exists("./data/friends.db") == false {
-		os.Remove("friends.db")
+		os.Remove("./data/friends.db")
 	}
 	db, err := sql.Open("sqlite3", "./data/friends.db")
 	if err != nil {

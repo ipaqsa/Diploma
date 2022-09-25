@@ -18,6 +18,22 @@ func CreatePackage(data string) *Package {
 	}
 }
 
+func CreateAuthenticationPackage(user *User) *Package {
+	userjson, err := json.Marshal(user)
+	if err != nil {
+		return nil
+	}
+	return &Package{
+		Head: HeadPackage{
+			Title: TITLE_AUTHENTICATION + ":" + user.Login,
+		},
+		Body: BodyPackage{
+			Date: time.Now().Format("2006-01-02 15:04:05"),
+			Data: Base64Encode(userjson),
+		},
+	}
+}
+
 func CreateRegistrationPackage(user *User) *Package {
 	userjson, err := json.Marshal(user)
 	if err != nil {

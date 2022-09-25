@@ -232,7 +232,19 @@ func (client *Client) RegisterDataSender() {
 	}
 }
 
-func (client *Client) broadcastSend(pack *Package) {
+func (client *Client) AuthenticationDataSender() {
+	pack := CreateAuthenticationPackage(client.user)
+	if pack == nil {
+		errorLogger.Printf("Authentication pack create")
+		return
+	}
+	for {
+		client.broadcastRegisterSend(pack)
+		time.Sleep(time.Second * 5)
+	}
+}
+
+func (client *Client) broadcastRegisterSend(pack *Package) {
 	users := client.ListF2F()
 	for _, user := range users {
 		if user != client.user.Login {
@@ -245,6 +257,30 @@ func (client *Client) broadcastSend(pack *Package) {
 		}
 	}
 }
+
+func (client *Client) broadcastAuthSend(pack *Package) int {
+	users := client.ListF2F()
+	count := len(users)
+	var trues int
+	for _, user := range users {
+		if user != client.user.Login {
+			res, err := client.SendMessageTo(user, pack)
+			if err != nil {
+				errorLogger.Printf("Auth pack was sent to %s %s", user, err.Error())
+				continue
+			}
+			infoLogger.Printf("Auth pack was sent to %s", user)
+			if res == "ok" {
+				trues++
+			}
+		}
+	}
+	if float64(trues/count) > 0.5 {
+		return 1
+	}
+	return 0
+}
+
 func (client *Client) redirect(pack *Package, sender net.Conn) {
 	bytesPack := EncodePackage(pack)
 	for cn := range client.connections {
