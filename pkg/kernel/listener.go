@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	TITLE_MESSAGE = "MSG"
-	TITLE_FILE    = "FILE"
+	TITLE_MESSAGE      = "MSG"
+	TITLE_FILE         = "FILE"
+	TITLE_REGISTRATION = "REGISTER"
 )
 
 var infoLoggerListener = newLogger("listener", "INFO")
@@ -17,6 +18,16 @@ var errorLoggerListener = newLogger("listener", "ERROR")
 func Handle(client *Client, pack *Package) bool {
 	splited := strings.Split(pack.Head.Title, ":")
 	switch splited[0] {
+	case TITLE_REGISTRATION:
+		public := ParsePublic(pack.Head.Sender)
+		client.send(public, &Package{
+			Head: HeadPackage{
+				Title: "_" + splited[0],
+			},
+			Body: BodyPackage{
+				Data: handleRegistration(client, pack),
+			},
+		})
 	case TITLE_MESSAGE:
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
@@ -39,6 +50,7 @@ func Handle(client *Client, pack *Package) bool {
 		})
 	case "_" + TITLE_MESSAGE:
 	case "_" + TITLE_FILE:
+	case "_" + TITLE_REGISTRATION:
 		client.response(ParsePublic(pack.Head.Sender), pack.Body.Data)
 
 	default:
@@ -141,6 +153,18 @@ func handleMessage(client *Client, pack *Package) string {
 
 func handleFile(client *Client, pack *Package) string {
 	filename := strings.Split(pack.Head.Title, ":")[1]
-	SaveFileFromByte("./data/"+filename, Base64Decode(pack.Body.Data))
+	err := SaveFileFromByte("./data/"+filename, Base64Decode(pack.Body.Data))
+	if err != nil {
+		return ""
+	}
+	return "ok"
+}
+
+func handleRegistration(client *Client, pack *Package) string {
+	login := strings.Split(pack.Head.Title, ":")[1]
+	err := client.AddHash(pack.Body.Data, pack.Body.Date, login)
+	if err != nil {
+		return ""
+	}
 	return "ok"
 }

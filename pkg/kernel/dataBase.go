@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
@@ -52,11 +53,6 @@ func (client *Client) AddMessage(dialog string, pack *Package) {
 
 	_, err := client.dbDialogs.ptr.Exec(query, message.Date, message.From, message.Data)
 	if err != nil {
-		println(query)
-		println(message.Data)
-		println(message.Date)
-		println(message.From)
-		println(err.Error())
 		return
 	}
 }
@@ -87,13 +83,49 @@ func (client *Client) DBUsersInit() {
 	}
 }
 
-func DBFriendsInit() *DB {
-	if exists("friends.db") == false {
+func (client *Client) DBHashesInit() {
+	db, err := sql.Open("sqlite3", "./data/externals")
+	if err != nil {
+		return
+	}
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS hashes (
+    	login VARCHAR(75) UNIQUE,
+    	date VARCHAR(25),
+    	hash VARCHAR(500),
+    	PRIMARY KEY(login)
+    	);
+	`)
+	if err != nil {
+		return
+	}
+	client.dbExternals = &DB{
+		ptr: db,
+	}
+}
+
+func (client *Client) AddHash(msg, date, login string) error {
+	var user User
+	err := json.Unmarshal(Base64Decode(msg), &user)
+	if err != nil {
+		return err
+	}
+	sumUser, err := HashSumUser(&user)
+	if err != nil {
+		return err
+	}
+	client.dbExternals.mtx.Lock()
+	defer client.dbExternals.mtx.Unlock()
+	_, err = client.dbUsers.ptr.Exec(`INSERT INTO hashes (login, date, hash) VALUES ($1, $2)`, login, date, sumUser)
+	return err
+}
+
+func (client *Client) DBFriendsInit() {
+	if exists("./data/friends.db") == false {
 		os.Remove("friends.db")
 	}
 	db, err := sql.Open("sqlite3", "./data/friends.db")
 	if err != nil {
-		return nil
+		return
 	}
 	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS friendsLogins (
@@ -103,7 +135,7 @@ func DBFriendsInit() *DB {
     	);
 	`)
 	if err != nil {
-		return nil
+		return
 	}
 	_, err = db.Exec(
 		`CREATE TABLE IF NOT EXISTS friendsAddresses (
@@ -113,9 +145,9 @@ func DBFriendsInit() *DB {
     	);
 	`)
 	if err != nil {
-		return nil
+		return
 	}
-	return &DB{
+	client.dbFriends = &DB{
 		ptr: db,
 	}
 }
@@ -243,4 +275,12 @@ func (client *Client) GetHashFromDialog(dialogName string) string {
 		summary += msgSummary
 	}
 	return Base64Encode(HashSum([]byte(summary)))
+}
+
+func HashSumUser(user *User) (string, error) {
+	marshal, err := json.Marshal(user)
+	if err != nil {
+		return "", err
+	}
+	return Base64Encode(HashSum(marshal)), err
 }

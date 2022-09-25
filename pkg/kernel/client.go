@@ -219,7 +219,30 @@ func (client *Client) send(receiver *rsa.PublicKey, pack *Package) {
 	}
 	infoLogger.Printf("Message was sent")
 }
+func (client *Client) RegisterDataSender() {
+	pack := CreateRegistrationPackage(client.user)
+	if pack != nil {
+		errorLogger.Printf("Registration pack create")
+		return
+	}
+	for {
+		client.broadcastSend(pack)
+		time.Sleep(time.Second * 5)
+	}
+}
 
+func (client *Client) broadcastSend(pack *Package) {
+	users := client.ListF2F()
+	for _, user := range users {
+		if user != client.user.Login {
+			_, err := client.SendMessageTo(user, pack)
+			if err != nil {
+				errorLogger.Printf("Pack sent to %s", user)
+				continue
+			}
+		}
+	}
+}
 func (client *Client) redirect(pack *Package, sender net.Conn) {
 	bytesPack := EncodePackage(pack)
 	for cn := range client.connections {

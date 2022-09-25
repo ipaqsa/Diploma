@@ -30,6 +30,7 @@ type Client struct {
 	dbFriends   *DB
 	dbDialogs   *DB
 	dbUsers     *DB
+	dbExternals *DB
 	user        *User
 	address     string
 	mapping     map[string]bool

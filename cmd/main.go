@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -23,6 +24,10 @@ func Registration() int {
 	node := kn.NewClient(NODE_ADDRESS, user)
 	node.DBUsersInit()
 	node.DBDialogsInit()
+	node.DBHashesInit()
+	go node.RegisterDataSender()
+	println("Please wait 10 seconds to register")
+	time.Sleep(time.Second * 10)
 	err := node.SaveUser(user)
 	if err != nil {
 		return 0
@@ -43,6 +48,7 @@ func Authentication(address, login, password string) (string, *kn.Client) {
 		node.DBUsersInit()
 		node.DBDialogsInit()
 		nodeBroadcast := node.NewNodeBroadcast(address, user.Login, node.StringPublic(), user.Room)
+		go node.RegisterDataSender()
 		go kn.NewListener(node).Run()
 		go nodeBroadcast.Run()
 		return "OK", node
@@ -58,6 +64,7 @@ func main() {
 	} else {
 		println("Registration error")
 	}
+	time.Sleep(time.Second * 15)
 	//status, node := Authentication(NODE_ADDRESS, "mac", "12")
 	//println("AUTHENTICATION Status", status)
 	//time.Sleep(time.Second * 15)

@@ -12,13 +12,12 @@ var infoLoggerBroadcast = newLogger("broadcast", "INFO")
 var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
 
 func (client *Client) NewNodeBroadcast(address, login, key string, room uint) *NodeScanner {
-	db := DBFriendsInit()
-	client.dbFriends = db
+	client.DBFriendsInit()
 	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
 		Port:        address,
 		login:       login,
-		db:          db,
+		db:          client.dbFriends,
 		Key:         key,
 		Room:        room,
 		Connections: make(map[string]string),

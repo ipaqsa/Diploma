@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 )
@@ -17,9 +18,21 @@ func CreatePackage(data string) *Package {
 	}
 }
 
-//func HashSumUser(user *User)  {
-//	user.
-//}
+func CreateRegistrationPackage(user *User) *Package {
+	userjson, err := json.Marshal(user)
+	if err != nil {
+		return nil
+	}
+	return &Package{
+		Head: HeadPackage{
+			Title: TITLE_REGISTRATION + ":" + user.Login,
+		},
+		Body: BodyPackage{
+			Date: time.Now().Format("2006-01-02 15:04:05"),
+			Data: Base64Encode(userjson),
+		},
+	}
+}
 
 func CreateFilePackage(path string) *Package {
 	splited := strings.Split(path, "/")
