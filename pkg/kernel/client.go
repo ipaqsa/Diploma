@@ -50,7 +50,7 @@ func GetDialogName(sender, to string) string {
 	return one + "to" + two
 }
 
-func (client *Client) SendMessageTo(login string, pack *Package, handle func(*Client, *Package)) (string, error) {
+func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
 	s := client.InF2F(login)
 	if s == false {
 		errorLogger.Printf("Client is not found in F2F: %s", login)
@@ -63,7 +63,7 @@ func (client *Client) SendMessageTo(login string, pack *Package, handle func(*Cl
 	)
 	client.actions[hash] = make(chan string)
 	defer delete(client.actions, hash)
-	err = client.Connect(login, handle)
+	err = client.Connect(login)
 	if err != nil {
 		return "", err
 	}
@@ -81,7 +81,7 @@ func (client *Client) SendMessageTo(login string, pack *Package, handle func(*Cl
 	return result, err
 }
 
-func (client *Client) Connect(login string, handle func(*Client, *Package)) error {
+func (client *Client) Connect(login string) error {
 	key := client.dbFriends.GetKey(login)
 	if key == "" {
 		errorLogger.Printf("Key was not found %s", login)
@@ -99,7 +99,7 @@ func (client *Client) Connect(login string, handle func(*Client, *Package)) erro
 	}
 	infoLogger.Printf("Successful connect to %s", login)
 	client.connections[conn] = address
-	go handleConn(conn, client, handle)
+	go handleConn(conn, client)
 	return nil
 }
 
@@ -161,31 +161,35 @@ func (client *Client) ListF2FAddress() []string {
 }
 
 func (client *Client) AppendFriends() {
-	members := client.GetAllMembers()
-	if members == nil {
-		return
-	}
-	for _, login := range members {
-		if _, ok := client.f2f[login]; ok {
-			continue
-		}
-		key := client.dbFriends.GetKey(login)
-		if key == "" {
-			errorLogger.Printf("Key was not found", login)
+	for {
+		members := client.GetAllMembers()
+		if members == nil {
 			return
 		}
+		for _, login := range members {
+			if _, ok := client.f2f[login]; ok {
+				continue
+			}
+			key := client.dbFriends.GetKey(login)
+			if key == "" {
+				errorLogger.Printf("Key was not found", login)
+				return
+			}
 
-		address := client.dbFriends.GetAddress(key)
-		if address == "" {
-			errorLogger.Printf("Address was not found")
-			return
+			address := client.dbFriends.GetAddress(key)
+			if address == "" {
+				errorLogger.Printf("Address was not found")
+				return
+			}
+			infoLogger.Printf("Dialog was created")
+			client.f2f[login] = ParsePublic(key)
+			client.f2f_d[ParsePublic(key)] = address
+			client.CreateDialogTable(GetDialogName(client.user.Login, login))
+			infoLogger.Printf("%s add to %s F2F", login, address)
 		}
-		infoLogger.Printf("Dialog was created")
-		client.f2f[login] = ParsePublic(key)
-		client.f2f_d[ParsePublic(key)] = address
-		client.CreateDialogTable(GetDialogName(client.user.Login, login))
-		infoLogger.Printf("%s add to %s F2F", login, address)
+		time.Sleep(time.Second * 5)
 	}
+
 }
 
 func (client *Client) RemoveFriend(login string) {

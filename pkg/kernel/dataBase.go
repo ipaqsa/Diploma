@@ -16,7 +16,7 @@ type DB struct {
 }
 
 func (client *Client) DBDialogsInit() {
-	db, err := sql.Open("sqlite3", "dialogs.db")
+	db, err := sql.Open("sqlite3", "./data/dialogs.db")
 	if err != nil {
 		return
 	}
@@ -63,7 +63,7 @@ func (client *Client) AddMessage(dialog string, pack *Package) {
 
 func (client *Client) DBUsersInit() {
 	client.f2f[client.user.Login] = client.Public()
-	db, err := sql.Open("sqlite3", "users.db")
+	db, err := sql.Open("sqlite3", "./data/users.db")
 	if err != nil {
 		println(err.Error())
 		return
@@ -91,7 +91,7 @@ func DBFriendsInit() *DB {
 	if exists("friends.db") == false {
 		os.Remove("friends.db")
 	}
-	db, err := sql.Open("sqlite3", "friends.db")
+	db, err := sql.Open("sqlite3", "./data/friends.db")
 	if err != nil {
 		return nil
 	}

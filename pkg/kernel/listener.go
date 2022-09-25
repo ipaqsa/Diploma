@@ -1,27 +1,44 @@
 package kernel
 
 import (
+	"fmt"
 	"net"
 	"strings"
+)
+
+const (
+	TITLE_MESSAGE = "MSG"
+	TITLE_FILE    = "FILE"
 )
 
 var infoLoggerListener = newLogger("listener", "INFO")
 var errorLoggerListener = newLogger("listener", "ERROR")
 
-func Handle(title string, client *Client, pack *Package, handle func(*Client, *Package) string) bool {
+func Handle(client *Client, pack *Package) bool {
 	splited := strings.Split(pack.Head.Title, ":")
 	switch splited[0] {
-	case title:
+	case TITLE_MESSAGE:
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
 			Head: HeadPackage{
-				Title: "_" + title,
+				Title: "_" + splited[0],
 			},
 			Body: BodyPackage{
-				Data: handle(client, pack),
+				Data: handleMessage(client, pack),
 			},
 		})
-	case "_" + title:
+	case TITLE_FILE:
+		public := ParsePublic(pack.Head.Sender)
+		client.send(public, &Package{
+			Head: HeadPackage{
+				Title: "_" + splited[0],
+			},
+			Body: BodyPackage{
+				Data: handleFile(client, pack),
+			},
+		})
+	case "_" + TITLE_MESSAGE:
+	case "_" + TITLE_FILE:
 		client.response(ParsePublic(pack.Head.Sender), pack.Body.Data)
 
 	default:
@@ -31,22 +48,23 @@ func Handle(title string, client *Client, pack *Package, handle func(*Client, *P
 }
 
 func NewListener(client *Client) *Listener {
+	go client.AppendFriends()
 	return &Listener{
 		client: client,
 	}
 }
 
-func (listener *Listener) Run(handle func(*Client, *Package)) error {
+func (listener *Listener) Run() error {
 	var err error
 	listener.listen, err = net.Listen("tcp", listener.client.address)
 	if err != nil {
 		return err
 	}
-	listener.serve(handle)
+	listener.serve()
 	return nil
 }
 
-func (listener *Listener) serve(handle func(*Client, *Package)) {
+func (listener *Listener) serve() {
 	defer listener.listen.Close()
 	for {
 		conn, err := listener.listen.Accept()
@@ -54,11 +72,11 @@ func (listener *Listener) serve(handle func(*Client, *Package)) {
 			break
 		}
 		listener.client.connections[conn] = "client"
-		go handleConn(conn, listener.client, handle)
+		go handleConn(conn, listener.client)
 	}
 }
 
-func handleConn(conn net.Conn, client *Client, handle func(*Client, *Package)) {
+func handleConn(conn net.Conn, client *Client) {
 	defer func() {
 		conn.Close()
 		delete(client.connections, conn)
@@ -86,7 +104,7 @@ func handleConn(conn net.Conn, client *Client, handle func(*Client, *Package)) {
 		}
 		client.mutex.Lock()
 		client.mutex.Unlock()
-		handle(client, decPack)
+		Handle(client, decPack)
 	}
 }
 
@@ -112,4 +130,17 @@ func readPackage(conn net.Conn) *Package {
 		}
 	}
 	return DecodePackage(message)
+}
+
+func handleMessage(client *Client, pack *Package) string {
+	dialogName := GetDialogName(client.GetLogin(pack.Head.Sender), client.GetUserINFO().Login)
+	client.AddMessage(dialogName, pack)
+	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLogin(pack.Head.Sender), pack.Body.Data)
+	return "ok"
+}
+
+func handleFile(client *Client, pack *Package) string {
+	filename := strings.Split(pack.Head.Title, ":")[1]
+	SaveFileFromByte("./data/"+filename, Base64Decode(pack.Body.Data))
+	return "ok"
 }
