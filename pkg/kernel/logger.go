@@ -19,6 +19,9 @@ func exists(path string) bool {
 }
 
 func newLogger(object, typeLogger string) *log.Logger {
+	if exists("./logs") == false {
+		os.Mkdir("./logs", os.ModePerm)
+	}
 	logsDir := "./logs/" + object + "/"
 	if exists(logsDir) == false {
 		os.Mkdir(logsDir, os.ModePerm)

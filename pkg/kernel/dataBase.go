@@ -203,7 +203,7 @@ func (db *DB) GetKey(login string) string {
 func GetUserFromDB(user *User, password string) uint {
 	psswd := Base64Encode(HashSum([]byte(password)))
 	var stringKey string
-	db, err := sql.Open("sqlite3", "users.db")
+	db, err := sql.Open("sqlite3", "./data/users.db")
 	if err != nil {
 		println(err.Error())
 		return 0

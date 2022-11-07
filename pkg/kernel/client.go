@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/big"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -227,7 +228,7 @@ func (client *Client) RegisterDataSender() {
 		return
 	}
 	for {
-		client.broadcastSend(pack)
+		client.broadcastRegisterSend(pack)
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -239,7 +240,7 @@ func (client *Client) AuthenticationDataSender() {
 		return
 	}
 	for {
-		client.broadcastRegisterSend(pack)
+		client.broadcastAuthSend(pack)
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -406,4 +407,13 @@ func (client *Client) GetUserINFO() *User {
 
 func (client *Client) GetLogin(key string) string {
 	return client.GetLoginFromF2f(ParsePublic(key))
+}
+
+func (client *Client) InitAllDB() {
+	if exists("./data") == false {
+		os.Mkdir("./data", os.ModePerm)
+	}
+	client.DBUsersInit()
+	client.DBDialogsInit()
+	client.DBHashesInit()
 }

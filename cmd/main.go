@@ -22,9 +22,7 @@ func Registration() int {
 	password := InputString()
 	user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), login, name, password, 1)
 	node := kn.NewClient(NODE_ADDRESS, user)
-	node.DBUsersInit()
-	node.DBDialogsInit()
-	node.DBHashesInit()
+	node.InitAllDB()
 	nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
 	go nodeBroadcast.Run()
 	go kn.NewListener(node).Run()
@@ -39,7 +37,11 @@ func Registration() int {
 	return 1
 }
 
-func Authentication(login, password string) (string, *kn.Client) {
+func Authentication() (string, *kn.Client) {
+	fmt.Printf("Enter login")
+	login := InputString()
+	fmt.Printf("Enter password")
+	password := InputString()
 	user := &kn.User{
 		Login:      login,
 		Password:   "",
@@ -49,8 +51,7 @@ func Authentication(login, password string) (string, *kn.Client) {
 	status := kn.GetUserFromDB(user, password)
 	if status == 1 {
 		node := kn.NewClient(NODE_ADDRESS, user)
-		node.DBUsersInit()
-		node.DBDialogsInit()
+		node.InitAllDB()
 		nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
 		go nodeBroadcast.Run()
 		go kn.NewListener(node).Run()
@@ -62,16 +63,25 @@ func Authentication(login, password string) (string, *kn.Client) {
 }
 
 func main() {
-	rstatus := Registration()
-	if rstatus == 1 {
-		println("Successful")
-	} else {
-		println("Registration error")
+	fmt.Printf("Press r for registate or a for login")
+	choice := InputString()
+	if choice[0] == 'r' {
+		rstatus := Registration()
+		if rstatus == 1 {
+			println("Successful")
+			choice = "a"
+		} else {
+			println("Registration error")
+		}
 	}
-	time.Sleep(time.Second * 15)
-	//status, node := Authentication(NODE_ADDRESS, "mac", "12")
-	//println("AUTHENTICATION Status", status)
-	//time.Sleep(time.Second * 15)
+	if choice[0] == 'a' {
+		status, _ := Authentication()
+		println("AUTHENTICATION Status:", status)
+		if status != "ok" {
+			return
+		}
+		time.Sleep(time.Second * 15)
+	}
 	//for {
 	//pack := kn.CreatePackage(InputString())
 	//pack := createFilePackage("./data/img.jpg")
