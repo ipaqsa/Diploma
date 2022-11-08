@@ -19,7 +19,7 @@ func CreatePackage(data string) *Package {
 }
 
 func CreateAuthenticationPackage(user *User) *Package {
-	userjson, err := json.Marshal(user)
+	userjson, err := json.Marshal(user.Password + user.Login)
 	if err != nil {
 		return nil
 	}
@@ -35,7 +35,7 @@ func CreateAuthenticationPackage(user *User) *Package {
 }
 
 func CreateRegistrationPackage(user *User) *Package {
-	userjson, err := json.Marshal(user)
+	userjson, err := json.Marshal(user.Password + user.Login)
 	if err != nil {
 		return nil
 	}

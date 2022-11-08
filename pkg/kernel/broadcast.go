@@ -12,7 +12,6 @@ var infoLoggerBroadcast = newLogger("broadcast", "INFO")
 var errorLoggerBroadcast = newLogger("broadcast", "ERROR")
 
 func (client *Client) NewNodeBroadcast(address, login, key string, room uint) *NodeScanner {
-	client.DBFriendsInit()
 	infoLoggerBroadcast.Printf("Node was created")
 	return &NodeScanner{
 		Port:        address,
@@ -50,11 +49,9 @@ func (node *NodeScanner) BroadcastMSG() {
 }
 
 func (node *NodeScanner) Run() {
-	go handleConnection(node)
-	time.Sleep(time.Second * 2)
 	for {
 		node.BroadcastMSG()
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 10)
 	}
 }
 
@@ -66,6 +63,7 @@ func DecrementPortFromAddress(address string) string {
 	address_n := strings.Join(splited, ":")
 	return address_n
 }
+
 func IncrementPortFromAddress(address string, n int) string {
 	splited := strings.Split(address, ":")
 	port_i, _ := strconv.Atoi(splited[1])
@@ -96,6 +94,9 @@ func (node *NodeScanner) PackageAnalysis(message string, pack *PackageBroadcast,
 			infoLoggerBroadcast.Printf("Update address %s", pack.Login)
 			node.db.SetAddress(pack.Key, address)
 			return 1
+		} else if node.db.GetAddress(pack.Key) == address {
+			infoLoggerBroadcast.Printf("My Friend %s", pack.Login)
+			return 1
 		} else {
 			errorLoggerBroadcast.Printf("Unknown %s %s", pack.Login, addr.String())
 		}
@@ -106,7 +107,7 @@ func (node *NodeScanner) PackageAnalysis(message string, pack *PackageBroadcast,
 	return 1
 }
 
-func handleConnection(node *NodeScanner) {
+func (node *NodeScanner) HandleConnection() {
 	conn, err := net.ListenPacket("udp4", IncrementPortFromAddress(node.Port, 2))
 	if err != nil {
 		panic(err)

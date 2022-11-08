@@ -2,86 +2,34 @@ package main
 
 import (
 	kn "Diploma/pkg/kernel"
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
-const (
-	NODE_ADDRESS = ":7000"
-)
-
-func Registration() int {
-	fmt.Printf("Enter login")
-	login := InputString()
-	fmt.Printf("Enter name")
-	name := InputString()
-	fmt.Printf("Enter password")
-	password := InputString()
-	user := kn.NewUser(kn.GeneratePrivate(kn.Get("AKEY_SIZE").(uint)), login, name, password, 1)
-	node := kn.NewClient(NODE_ADDRESS, user)
-	node.InitAllDB()
-	nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
-	go nodeBroadcast.Run()
-	go kn.NewListener(node).Run()
-	go node.RegisterDataSender()
-	println("Please wait 10 seconds to register")
-	time.Sleep(time.Second * 10)
-	err := node.SaveUser(user)
-	if err != nil {
-		println(err.Error())
-		return 0
-	}
-	return 1
-}
-
-func Authentication() (string, *kn.Client) {
-	fmt.Printf("Enter login")
-	login := InputString()
-	fmt.Printf("Enter password")
-	password := InputString()
-	user := &kn.User{
-		Login:      login,
-		Password:   "",
-		Room:       0,
-		PrivateKey: nil,
-	}
-	status := kn.GetUserFromDB(user, password)
-	if status == 1 {
-		node := kn.NewClient(NODE_ADDRESS, user)
-		node.InitAllDB()
-		nodeBroadcast := node.NewNodeBroadcast(NODE_ADDRESS, user.Login, node.StringPublic(), user.Room)
-		go nodeBroadcast.Run()
-		go kn.NewListener(node).Run()
-		go node.RegisterDataSender()
-		return "OK", node
-	} else {
-		return "ERROR Authentication", nil
-	}
-}
-
 func main() {
+	var node *kn.Client
+	var status string
 	fmt.Printf("Press r for registate or a for login")
-	choice := InputString()
+	choice := kn.InputString()
 	if choice[0] == 'r' {
-		rstatus := Registration()
+		rstatus := kn.Registration()
 		if rstatus == 1 {
 			println("Successful")
-			choice = "a"
+			os.Exit(1)
 		} else {
 			println("Registration error")
 		}
 	}
 	if choice[0] == 'a' {
-		status, _ := Authentication()
+		status, node = kn.Authentication()
 		println("AUTHENTICATION Status:", status)
 		if status != "ok" {
 			return
 		}
 		time.Sleep(time.Second * 15)
 	}
+	node.ListF2F()
 	//for {
 	//pack := kn.CreatePackage(InputString())
 	//pack := createFilePackage("./data/img.jpg")
@@ -92,10 +40,4 @@ func main() {
 	//}
 	//println(r)
 	//}
-}
-
-func InputString() string {
-	print(":> ")
-	msg, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	return strings.Replace(msg, "\n", "", -1)
 }

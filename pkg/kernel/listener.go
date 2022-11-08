@@ -21,6 +21,7 @@ func Handle(client *Client, pack *Package) bool {
 	splited := strings.Split(pack.Head.Title, ":")
 	switch splited[0] {
 	case TITLE_AUTHENTICATION:
+		infoLoggerListener.Printf("AuthPack was received")
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
 			Head: HeadPackage{
@@ -31,6 +32,7 @@ func Handle(client *Client, pack *Package) bool {
 			},
 		})
 	case TITLE_REGISTRATION:
+		infoLoggerListener.Printf("RegisterPack was received")
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
 			Head: HeadPackage{
@@ -41,6 +43,7 @@ func Handle(client *Client, pack *Package) bool {
 			},
 		})
 	case TITLE_MESSAGE:
+		infoLoggerListener.Printf("MsgPack was received")
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
 			Head: HeadPackage{
@@ -51,6 +54,7 @@ func Handle(client *Client, pack *Package) bool {
 			},
 		})
 	case TITLE_FILE:
+		infoLoggerListener.Printf("FilePack was received")
 		public := ParsePublic(pack.Head.Sender)
 		client.send(public, &Package{
 			Head: HeadPackage{
@@ -63,6 +67,7 @@ func Handle(client *Client, pack *Package) bool {
 	case "_" + TITLE_MESSAGE:
 	case "_" + TITLE_FILE:
 	case "_" + TITLE_REGISTRATION:
+	case "_" + TITLE_AUTHENTICATION:
 		client.response(ParsePublic(pack.Head.Sender), pack.Body.Data)
 
 	default:
@@ -70,7 +75,6 @@ func Handle(client *Client, pack *Package) bool {
 	}
 	return true
 }
-
 func NewListener(client *Client) *Listener {
 	go client.AppendFriends()
 	return &Listener{
@@ -78,16 +82,16 @@ func NewListener(client *Client) *Listener {
 	}
 }
 
-func (listener *Listener) Run() error {
+func (listener *Listener) Run() {
 	var err error
 	listener.listen, err = net.Listen("tcp", listener.client.address)
 	if err != nil {
-		return err
+		errorLoggerListener.Printf("Listen error: %s", err.Error())
+		return
 	}
 	listener.serve()
-	return nil
+	return
 }
-
 func (listener *Listener) serve() {
 	defer listener.listen.Close()
 	for {
@@ -99,7 +103,6 @@ func (listener *Listener) serve() {
 		go handleConn(conn, listener.client)
 	}
 }
-
 func handleConn(conn net.Conn, client *Client) {
 	defer func() {
 		conn.Close()
@@ -162,7 +165,6 @@ func handleMessage(client *Client, pack *Package) string {
 	fmt.Printf("\n[%s] => '%s'\n:> ", client.GetLogin(pack.Head.Sender), pack.Body.Data)
 	return "ok"
 }
-
 func handleFile(client *Client, pack *Package) string {
 	filename := strings.Split(pack.Head.Title, ":")[1]
 	err := SaveFileFromByte("./data/"+filename, Base64Decode(pack.Body.Data))
@@ -171,30 +173,26 @@ func handleFile(client *Client, pack *Package) string {
 	}
 	return "ok"
 }
-
 func handleRegistration(client *Client, pack *Package) string {
 	login := strings.Split(pack.Head.Title, ":")[1]
-	println(login, pack.Head.Title)
 	err := client.AddHash(pack.Body.Data, pack.Body.Date, login)
 	if err != nil {
 		return ""
 	}
 	return "ok"
 }
-
 func handleAuthentication(client *Client, pack *Package) string {
 	login := strings.Split(pack.Head.Title, ":")[1]
-	println(login, pack.Head.Title)
 	hash := client.GetHash(login)
 	if hash == "" {
-		return "no"
+		return "nk"
 	}
-	var user User
-	err := json.Unmarshal(Base64Decode(pack.Body.Date), &user)
+	var passLogin string
+	err := json.Unmarshal(Base64Decode(pack.Body.Data), &passLogin)
 	if err != nil {
 		return "no"
 	}
-	hashNew, err := HashSumUser(&user)
+	hashNew, err := HashSumAuth(passLogin)
 	if err != nil {
 		return "no"
 	}

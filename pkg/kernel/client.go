@@ -25,7 +25,6 @@ func NewUser(priv *rsa.PrivateKey, login, name string, password string, room uin
 		PrivateKey: priv,
 	}
 }
-
 func NewClient(address string, user *User) *Client {
 	infoLogger.Printf("New node with %s", address)
 	return &Client{
@@ -39,47 +38,15 @@ func NewClient(address string, user *User) *Client {
 		f2f_d:       make(map[*rsa.PublicKey]string),
 	}
 }
-func GetDialogName(sender, to string) string {
-	var one, two string
-	if sender > to {
-		one = sender
-		two = to
-	} else {
-		one = to
-		two = sender
+func (client *Client) InitAllDB() {
+	if exists("./data") == false {
+		os.Mkdir("./data", os.ModePerm)
 	}
-	return one + "to" + two
-}
 
-func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
-	s := client.InF2F(login)
-	if s == false {
-		errorLogger.Printf("Client is not found in F2F: %s", login)
-		return "", nil
-	}
-	var (
-		err    error
-		result string
-		hash   = HashPublic(client.f2f[login])
-	)
-	client.actions[hash] = make(chan string)
-	defer delete(client.actions, hash)
-	err = client.Connect(login)
-	if err != nil {
-		return "", err
-	}
-	client.send(client.f2f[login], pack)
-	select {
-	case result = <-client.actions[hash]:
-	case <-time.After(time.Duration(settings.WAIT_TIME) * time.Second):
-		err = errors.New("time is over")
-	}
-	if err == nil {
-		dialogName := GetDialogName(client.user.Login, login)
-		pack.Head.Sender = ""
-		client.AddMessage(dialogName, pack)
-	}
-	return result, err
+	client.DBFriendsInit()
+	client.DBUsersInit()
+	client.DBDialogsInit()
+	client.DBHashesInit()
 }
 
 func (client *Client) Connect(login string) error {
@@ -103,7 +70,6 @@ func (client *Client) Connect(login string) error {
 	go handleConn(conn, client)
 	return nil
 }
-
 func (client *Client) Disconnect(address string) {
 	for conn, addr := range client.connections {
 		if addr == address {
@@ -136,15 +102,6 @@ func (client *Client) InF2F(login string) bool {
 	}
 	return false
 }
-
-func (client *Client) GetLoginFromF2f(key *rsa.PublicKey) string {
-	for k, v := range client.f2f {
-		if StringPublic(v) == StringPublic(key) {
-			return k
-		}
-	}
-	return ""
-}
 func (client *Client) ListF2F() []string {
 	var list []string
 	for login, _ := range client.f2f {
@@ -152,7 +109,6 @@ func (client *Client) ListF2F() []string {
 	}
 	return list
 }
-
 func (client *Client) ListF2FAddress() []string {
 	var list []string
 	for _, address := range client.f2f_d {
@@ -160,7 +116,6 @@ func (client *Client) ListF2FAddress() []string {
 	}
 	return list
 }
-
 func (client *Client) AppendFriends() {
 	for {
 		members := client.GetAllMembers()
@@ -186,25 +141,54 @@ func (client *Client) AppendFriends() {
 			client.f2f[login] = ParsePublic(key)
 			client.f2f_d[ParsePublic(key)] = address
 			client.CreateDialogTable(GetDialogName(client.user.Login, login))
-			infoLogger.Printf("%s add to %s F2F", login, address)
+			infoLogger.Printf("%s add %s to F2F", login, address)
 		}
-		time.Sleep(time.Second * 4)
+		time.Sleep(time.Second * 2)
 	}
 
 }
-
 func (client *Client) RemoveFriend(login string) {
 	delete(client.f2f, login)
 }
-
 func (client *Client) RemoveFriendAddress(pub *rsa.PublicKey) {
 	delete(client.f2f_d, pub)
 }
-
 func (client *Client) UpdateAddress(pub *rsa.PublicKey, address string) {
 	client.f2f_d[pub] = address
 }
 
+func (client *Client) SendMessageTo(login string, pack *Package) (string, error) {
+	s := client.InF2F(login)
+	if s == false {
+		errorLogger.Printf("Client was not found in F2F: %s", login)
+		return "", nil
+	}
+	var (
+		err    error
+		result string
+		hash   = HashPublic(client.f2f[login])
+	)
+	client.actions[hash] = make(chan string)
+	defer delete(client.actions, hash)
+	err = client.Connect(login)
+	if err != nil {
+		return "", err
+	}
+	client.send(client.f2f[login], pack)
+	select {
+	case result = <-client.actions[hash]:
+	case <-time.After(time.Duration(settings.WAIT_TIME) * time.Second):
+		err = errors.New("time is over")
+	}
+	if err == nil {
+		dialogName := GetDialogName(client.user.Login, login)
+		pack.Head.Sender = ""
+		if pack.Head.Title == TITLE_MESSAGE {
+			client.AddMessage(dialogName, pack)
+		}
+	}
+	return result, err
+}
 func (client *Client) send(receiver *rsa.PublicKey, pack *Package) {
 	encPack := client.encrypt(receiver, pack)
 	bytesPack := EncodePackage(encPack)
@@ -229,20 +213,16 @@ func (client *Client) RegisterDataSender() {
 	}
 	for {
 		client.broadcastRegisterSend(pack)
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 120)
 	}
 }
-
-func (client *Client) AuthenticationDataSender() {
+func (client *Client) AuthenticationDataSender() int {
 	pack := CreateAuthenticationPackage(client.user)
 	if pack == nil {
 		errorLogger.Printf("Authentication pack create")
-		return
+		return -1
 	}
-	for {
-		client.broadcastAuthSend(pack)
-		time.Sleep(time.Second * 5)
-	}
+	return client.broadcastAuthSend(pack)
 }
 
 func (client *Client) broadcastRegisterSend(pack *Package) {
@@ -258,14 +238,22 @@ func (client *Client) broadcastRegisterSend(pack *Package) {
 		}
 	}
 }
-
 func (client *Client) broadcastAuthSend(pack *Package) int {
 	users := client.ListF2F()
-	count := len(users)
+	if len(users) < 2 {
+		time.Sleep(4 * time.Second)
+		users = client.ListF2F()
+		if len(users) < 2 {
+			return -1
+		}
+	}
+	count := len(users) - 1
 	var trues int
+	var nknow int
 	for _, user := range users {
 		if user != client.user.Login {
 			res, err := client.SendMessageTo(user, pack)
+			print(res, "= RES\n")
 			if err != nil {
 				errorLogger.Printf("Auth pack was sent to %s %s", user, err.Error())
 				continue
@@ -274,7 +262,14 @@ func (client *Client) broadcastAuthSend(pack *Package) int {
 			if res == "ok" {
 				trues++
 			}
+			if res == "nk" {
+				nknow++
+			}
 		}
+	}
+	println(trues, nknow, count)
+	if float64(nknow/count) > 0.8 && count > 5 {
+		return -1
 	}
 	if float64(trues/count) > 0.5 {
 		return 1
@@ -297,7 +292,6 @@ func (client *Client) redirect(pack *Package, sender net.Conn) {
 		))
 	}
 }
-
 func (client *Client) response(pub *rsa.PublicKey, data string) {
 	hash := HashPublic(pub)
 	if _, ok := client.actions[hash]; ok {
@@ -336,7 +330,6 @@ func (client *Client) encrypt(receiver *rsa.PublicKey, pack *Package) *Package {
 			Sign: Base64Encode(sign),
 		}}
 }
-
 func (client *Client) decrypt(pack *Package) *Package {
 	session := DecryptRSA(client.user.PrivateKey, Base64Decode(pack.Head.Session))
 	if session == nil {
@@ -401,19 +394,29 @@ func (client *Client) decrypt(pack *Package) *Package {
 	}
 }
 
+func GetDialogName(sender, to string) string {
+	var one, two string
+	if sender > to {
+		one = sender
+		two = to
+	} else {
+		one = to
+		two = sender
+	}
+	return one + "to" + two
+}
+
 func (client *Client) GetUserINFO() *User {
 	return client.user
 }
-
 func (client *Client) GetLogin(key string) string {
 	return client.GetLoginFromF2f(ParsePublic(key))
 }
-
-func (client *Client) InitAllDB() {
-	if exists("./data") == false {
-		os.Mkdir("./data", os.ModePerm)
+func (client *Client) GetLoginFromF2f(key *rsa.PublicKey) string {
+	for k, v := range client.f2f {
+		if StringPublic(v) == StringPublic(key) {
+			return k
+		}
 	}
-	client.DBUsersInit()
-	client.DBDialogsInit()
-	client.DBHashesInit()
+	return ""
 }
